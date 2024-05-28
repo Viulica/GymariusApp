@@ -27,7 +27,7 @@ const ExerciseStatisticsScreen = ({ route }) => {
         return {
           date: workout.date,
           totalWeight,
-          oneRepMax,
+          oneRepMax, 
           name
         };
       });
@@ -36,13 +36,20 @@ const ExerciseStatisticsScreen = ({ route }) => {
     fetchExerciseData();
   }, [exerciseId]);
 
-  const chartData = {
-    labels: exerciseData ? exerciseData.map(data => moment(data.date).format('YYYY-MM-DD')) : [],
+  const chartData = exerciseData && exerciseData.length > 0 ? {
+    labels: exerciseData.map(data => moment(data.date).format('YYYY-MM-DD')),
     datasets: [
       {
-        data: exerciseData ? exerciseData.map(data => data.oneRepMax) : [],
+        data: exerciseData.map(data => data.oneRepMax),
         color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
         strokeWidth: 2, 
+      },
+    ],
+  } : {
+    labels: [],
+    datasets: [
+      {
+        data: [],
       },
     ],
   };
@@ -50,48 +57,52 @@ const ExerciseStatisticsScreen = ({ route }) => {
   return (
     <View style={styles.container}>
       {exerciseData ? (
-        <>
-          <Text style={styles.title}>
-            {exerciseData.length > 0 ? exerciseData[0].name : ''} Statistics
-          </Text>
-          <LineChart
-            data={chartData}
-            width={Dimensions.get('window').width - 20} 
-            height={220}
-            yAxisLabel=""
-            yAxisSuffix=" kg"
-            chartConfig={{
-              backgroundColor: '#e26a00',
-              backgroundGradientFrom: '#fb8c00',
-              backgroundGradientTo: '#ffa726',
-              decimalPlaces: 2,
-              color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-              labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-              style: {
+        exerciseData.length > 0 ? (
+          <>
+            <Text style={styles.title}>
+              {exerciseData[0].name} Statistics
+            </Text>
+            <LineChart
+              data={chartData}
+              width={Dimensions.get('window').width - 20} 
+              height={220}
+              yAxisLabel=""
+              yAxisSuffix=" kg"
+              chartConfig={{
+                backgroundColor: '#e26a00',
+                backgroundGradientFrom: '#fb8c00',
+                backgroundGradientTo: '#ffa726',
+                decimalPlaces: 2,
+                color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                style: {
+                  borderRadius: 16,
+                },
+                propsForDots: {
+                  r: '6',
+                  strokeWidth: '2',
+                  stroke: '#ffa726',
+                },
+              }}
+              bezier
+              style={{
+                marginVertical: 8,
                 borderRadius: 16,
-              },
-              propsForDots: {
-                r: '6',
-                strokeWidth: '2',
-                stroke: '#ffa726',
-              },
-            }}
-            bezier
-            style={{
-              marginVertical: 8,
-              borderRadius: 16,
-            }}
-          />
-          <ScrollView style={styles.scrollView}>
-            {exerciseData.map((data, index) => (
-              <View key={index} style={styles.dataContainer}>
-                <Text>Date: {moment(data.date).format('YYYY-MM-DD')}</Text>
-                <Text>Total Weight: {data.totalWeight} kg</Text>
-                <Text>One-Rep Max: {data.oneRepMax.toFixed(2)} kg</Text>
-              </View>
-            ))}
-          </ScrollView>
-        </>
+              }}
+            />
+            <ScrollView style={styles.scrollView}>
+              {exerciseData.map((data, index) => (
+                <View key={index} style={styles.dataContainer}>
+                  <Text>Date: {moment(data.date).format('YYYY-MM-DD')}</Text>
+                  <Text>Total Weight: {data.totalWeight} kg</Text>
+                  <Text>One-Rep Max: {data.oneRepMax.toFixed(2)} kg</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </>
+        ) : (
+          <Text style={styles.noDataText}>No data available for this exercise.</Text>
+        )
       ) : (
         <Text>Loading...</Text>
       )}
@@ -121,6 +132,12 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
     borderRadius: 5,
     backgroundColor: '#f9f9f9',
+  },
+  noDataText: {
+    fontSize: 18,
+    textAlign: 'center',
+    marginTop: 20,
+    color: 'gray',
   },
 });
 
