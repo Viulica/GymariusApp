@@ -34,7 +34,6 @@ const NewWorkoutScreen = ({ navigation }) => {
 
     const addExerciseToWorkout = () => {
         const exerciseData = predefinedExercises.find(e => e.id === selectedExerciseId);
-        console.log("exerciseData:", exerciseData);
         if (exerciseData && !workoutExercises.some(e => e.id === exerciseData.id)) {
             const newExercise = new Exercise(exerciseData.id, exerciseData.name, exerciseData.type, exerciseData.bodyPart);
             setWorkoutExercises(prev => [...prev, newExercise]);

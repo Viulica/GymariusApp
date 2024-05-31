@@ -43,7 +43,6 @@ class WorkoutService {
                 workouts: []
             };
             await AsyncStorage.setItem(this.storageKey, JSON.stringify(initialData));
-            console.log("Initialized app data:", initialData); // Log initial data
         }
     }
 

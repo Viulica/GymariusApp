@@ -10,7 +10,6 @@ export const ExerciseProvider = ({ children }) => {
         const loadExercises = async () => {
             await WorkoutService.initializeAppData();
             const storedExercises = await WorkoutService.getExercises();
-            console.log(storedExercises)
             setPredefinedExercises(storedExercises);
         };
 

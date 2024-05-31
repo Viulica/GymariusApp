@@ -10,7 +10,7 @@ const StatisticsScreen = ({ navigation, workouts = [] }) => {
   const [mode, setMode] = useState('week');
   const [chartData, setChartData] = useState({ labels: [], datasets: [{ data: [] }] });
   const [currentPeriodCount, setCurrentPeriodCount] = useState(0);
-  const scrollViewRef = useRef();
+  const scrollViewRef = useRef(0);
   const [maxWorkoutCount, setMaxWorkoutCount] = useState(0);  
   const [selectedExercise, setSelectedExercise] = useState(null);
 
@@ -30,11 +30,6 @@ const StatisticsScreen = ({ navigation, workouts = [] }) => {
   };
   const chartWidth = getChartWidth(mode);
 
-  useEffect(() => {
-    const { labels, datasets, maxWorkouts } = countWorkouts(workouts, mode);
-    setChartData({ labels, datasets });
-    setMaxWorkoutCount(maxWorkouts); 
-  }, [mode, workouts]);
 
   const chartConfig = {
     backgroundColor: '#e26a00',
@@ -90,7 +85,7 @@ const StatisticsScreen = ({ navigation, workouts = [] }) => {
         const weekWidth = getChartWidth('week') / 52;
         const initialScrollPosition = (currentWeek - 5) * weekWidth;
         scrollViewRef.current?.scrollTo({ x: initialScrollPosition, animated: true });
-      }, 300); // Adjust timeout as needed
+      }, 300); 
       return () => clearTimeout(timer);
     }
     else if (mode === "month") {
@@ -99,7 +94,7 @@ const StatisticsScreen = ({ navigation, workouts = [] }) => {
         const monthWidth = getChartWidth('month') / 12;
         const initialScrollPosition = (currentMonth - 2) * monthWidth;
         scrollViewRef.current?.scrollTo({ x: initialScrollPosition, animated: true });
-      }, 300); // Adjust timeout as needed
+      }, 300); 
       return () => clearTimeout(timer);
 
     }
@@ -164,6 +159,7 @@ const StatisticsScreen = ({ navigation, workouts = [] }) => {
       navigation.navigate('ExerciseStatistics', { exerciseId: selectedExercise });
     }
   };
+
 
   return (
     <View style={styles.container}>

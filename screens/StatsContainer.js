@@ -17,14 +17,22 @@ const StatsContainer = ({ navigation }) => {
         });
 
         fetchWorkouts(); 
+
         return unsubscribe;
     }, [navigation]);
 
     const fetchWorkouts = async () => {
-        const allWorkouts = await WorkoutService.getWorkouts();
-        setWorkouts(allWorkouts);
-        setLoading(false)
+        try {
+            const allWorkouts = await WorkoutService.getWorkouts();
+            console.log(allWorkouts)
+            setWorkouts(allWorkouts);
+        } catch (error) {
+            console.error('Failed to fetch workouts:', error);
+        } finally {
+            setLoading(false);
+        }
     };
+    
 
     if (loading) {
         return <ActivityIndicator size="large" color="#0000ff" />;
