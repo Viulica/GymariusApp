@@ -11,7 +11,7 @@ const StatisticsScreen = ({ navigation, workouts = [] }) => {
   const [chartData, setChartData] = useState({ labels: [], datasets: [{ data: [] }] });
   const [currentPeriodCount, setCurrentPeriodCount] = useState(0);
   const scrollViewRef = useRef(0);
-  const [maxWorkoutCount, setMaxWorkoutCount] = useState(0);  
+  const [maxWorkoutCount, setMaxWorkoutCount] = useState(workouts.length);  
   const [selectedExercise, setSelectedExercise] = useState(null);
 
   const screenWidth = Dimensions.get('window').width;
@@ -142,15 +142,13 @@ const StatisticsScreen = ({ navigation, workouts = [] }) => {
   
     const labels = Object.keys(counts).sort((a, b) => parseInt(a) - parseInt(b));
     const values = labels.map(label => counts[label]);
-    const maxWorkouts = Math.max(...values);
-    setMaxWorkoutCount(maxWorkouts)
   
     return {
       labels,
       datasets: [{
         data: values
       }],
-      maxWorkouts
+      maxWorkoutCount
     };
   };
 
@@ -159,6 +157,7 @@ const StatisticsScreen = ({ navigation, workouts = [] }) => {
       navigation.navigate('ExerciseStatistics', { exerciseId: selectedExercise });
     }
   };
+
 
 
   return (

@@ -24,18 +24,17 @@ const StatsContainer = ({ navigation }) => {
     const fetchWorkouts = async () => {
         try {
             const allWorkouts = await WorkoutService.getWorkouts();
-            console.log(allWorkouts)
             setWorkouts(allWorkouts);
         } catch (error) {
             console.error('Failed to fetch workouts:', error);
         } finally {
             setLoading(false);
         }
-    };
+    }
     
 
     if (loading) {
-        return <ActivityIndicator size="large" color="#0000ff" />;
+        return <ActivityIndicator size="large" color="#0000ff" />
     }
     if (workouts.length === 0) {
         return (
