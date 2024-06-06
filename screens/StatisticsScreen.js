@@ -3,7 +3,7 @@ import { View, Text, Dimensions, Button, StyleSheet, ScrollView } from 'react-na
 import { BarChart } from 'react-native-chart-kit';
 import moment from 'moment'; 
 import ExercisePicker from '../components/ExercisePicker';
-import { ExerciseContext } from './ExerciseContext';
+import { ExerciseContext } from '../contexts/ExerciseContext';
 
 const StatisticsScreen = ({ navigation, workouts = [] }) => {
   const { predefinedExercises } = useContext(ExerciseContext);
@@ -49,34 +49,11 @@ const StatisticsScreen = ({ navigation, workouts = [] }) => {
     useShadowColorFromDataset: false 
   };
 
-  useEffect(() => {
-    const current = moment();
-    const currentCount = workouts.filter(workout => {
-      const workoutMoment = moment(workout.date);
-      switch (mode) {
-        case 'week':
-          return current.isoWeek() === workoutMoment.isoWeek() && current.year() === workoutMoment.year();
-        case 'month':
-          return current.month() === workoutMoment.month() && current.year() === workoutMoment.year();
-        case 'year':
-          return current.year() === workoutMoment.year();
-        default:
-          return false;
-      }
-    }).length;
-    setCurrentPeriodCount(currentCount);
-  }, [mode, workouts]);
-
   const getMaxWorkouts = (values) => {
     const max = Math.max(...values);
     return max > 0 ? max : 1; 
   };
   
-  useEffect(() => {
-    const { labels, datasets, maxWorkouts } = countWorkouts(workouts, mode);
-    setChartData({ labels, datasets });
-    setMaxWorkoutCount(getMaxWorkouts(datasets[0].data)); 
-  }, [mode, workouts]);
 
   useEffect(() => {
     if (mode === 'week') {
@@ -142,15 +119,38 @@ const StatisticsScreen = ({ navigation, workouts = [] }) => {
   
     const labels = Object.keys(counts).sort((a, b) => parseInt(a) - parseInt(b));
     const values = labels.map(label => counts[label]);
+    const maxWorkouts = Math.max(...values);
   
     return {
       labels,
       datasets: [{
         data: values
       }],
-      maxWorkoutCount
+      maxWorkouts
     };
   };
+
+  useEffect(() => {
+    const { labels, datasets, maxWorkouts } = countWorkouts(workouts, mode);
+    setChartData({ labels, datasets });
+    setMaxWorkoutCount(getMaxWorkouts(datasets[0].data)); 
+
+    const current = moment();
+    const currentCount = workouts.filter(workout => {
+      const workoutMoment = moment(workout.date);
+      switch (mode) {
+        case 'week':
+          return current.isoWeek() === workoutMoment.isoWeek() && current.year() === workoutMoment.year();
+        case 'month':
+          return current.month() === workoutMoment.month() && current.year() === workoutMoment.year();
+        case 'year':
+          return current.year() === workoutMoment.year();
+        default:
+          return false;
+      }
+    }).length;
+    setCurrentPeriodCount(currentCount);
+  }, [mode, workouts]);
 
   const navigateToExerciseStatistics = () => {
     if (selectedExercise) {

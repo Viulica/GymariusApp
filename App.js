@@ -9,8 +9,8 @@ import StatsContainer from './screens/StatsContainer';
 import NotesScreen from './screens/NotesScreen';
 import NoteDetail from './screens/NoteDetail';
 import ChatScreen from './screens/ChatScreen';
-import { ChatProvider } from './screens/ChatContext';
-import { ExerciseProvider } from './screens/ExerciseContext';
+import { ChatProvider } from './contexts/ChatContext';
+import { ExerciseProvider } from './contexts/ExerciseContext';
 
 const Tab = createBottomTabNavigator();
 const WorkoutStack = createStackNavigator();

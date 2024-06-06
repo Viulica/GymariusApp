@@ -3,10 +3,10 @@ import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert, Modal, TextI
 import ExercisePicker from '../components/ExercisePicker';
 import WorkoutService from '../services/WorkoutService';
 import ExerciseCard from '../components/ExerciseCard';
-import { useChat } from './ChatContext';
+import { useChat } from '../contexts/ChatContext';
 import Exercise from '../models/Exercise';
 import Set from '../models/Set';
-import { ExerciseContext } from './ExerciseContext';7
+import { ExerciseContext } from '../contexts/ExerciseContext';
 
 const NewWorkoutScreen = ({ navigation }) => {
     const { predefinedExercises, setPredefinedExercises } = useContext(ExerciseContext);
