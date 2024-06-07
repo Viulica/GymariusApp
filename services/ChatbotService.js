@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { measure } from 'react-native-reanimated';
 import { API_KEY } from '@env';
 
 const API_URL = 'https://api.openai.com/v1/chat/completions';

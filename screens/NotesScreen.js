@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, FlatList, Text, Button, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome'; 
+import NoteService from '../services/NoteService';
 
 const NotesScreen = ({ navigation }) => {
     const [notes, setNotes] = useState([]);
@@ -15,14 +15,13 @@ const NotesScreen = ({ navigation }) => {
     }, [isFocused]);
 
     const loadNotes = async () => {
-        const storedNotes = await AsyncStorage.getItem('notes');
-        setNotes(storedNotes ? JSON.parse(storedNotes) : []);
+        const storedNotes = await NoteService.getNotes();
+        setNotes(storedNotes);
     };
 
     const deleteNote = async (id) => {
-        const updatedNotes = notes.filter(note => note.id !== id);
-        await AsyncStorage.setItem('notes', JSON.stringify(updatedNotes));
-        setNotes(updatedNotes);
+        await NoteService.deleteNoteById(id);
+        setNotes(notes.filter(note => note.id !== id));
     };
 
     const handleDelete = (id) => {
