@@ -86,7 +86,6 @@ const NewWorkoutScreen = ({ navigation }) => {
         };
 
         try {
-            console.log("adding workout")
             await WorkoutService.addWorkout(workout);
             Alert.alert("Success", "Workout saved successfully!");
             setWorkoutExercises([]);
@@ -106,13 +105,11 @@ const NewWorkoutScreen = ({ navigation }) => {
     };
 
     const handleAddCustomExercise = () => {
-        console.log("handleAddCustomExercise called");
         setIsModalVisible(false);
         setIsCustomExerciseModalVisible(true);
     };
 
     const saveCustomExercise = async () => {
-        console.log("saveCustomExercise called");
         if (customExercise.name && customExercise.type && customExercise.bodyPart) {
             const newExercise = {
                 id: predefinedExercises.length + 1,

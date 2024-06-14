@@ -51,7 +51,6 @@ class WorkoutService {
         if (data && data.exercises) {
             const maxId = data.exercises.reduce((max, ex) => (ex.id > max ? ex.id : max), 0);
             exercise.id = maxId + 1;
-            console.log("Adding exercise:", exercise);  // Log exercise before adding
             data.exercises.push(exercise);
             await AsyncStorage.setItem(this.storageKey, JSON.stringify(data));
         } else {
@@ -65,10 +64,6 @@ class WorkoutService {
         data.workouts = filteredWorkouts;
         await AsyncStorage.setItem(this.storageKey, JSON.stringify(data));
     }
-
-    // static async clearData() {
-    //     await AsyncStorage.removeItem(this.storageKey);
-    // }
 }
 
 export default WorkoutService;
