@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { Ionicons } from '@expo/vector-icons'; 
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import WorkoutService from '../services/WorkoutService';
 import moment from 'moment';
 
@@ -12,15 +12,13 @@ const HistoryScreen = ({ navigation }) => {
         const unsubscribe = navigation.addListener('focus', () => {
             fetchWorkouts();
         });
-
-        fetchWorkouts();  
-
+        fetchWorkouts();
         return unsubscribe;
     }, [navigation]);
 
     const fetchWorkouts = async () => {
         const allWorkouts = await WorkoutService.getWorkouts();
-        setWorkouts(allWorkouts);
+        setWorkouts(allWorkouts.reverse());
     };
 
     const handleDeleteWorkout = (id) => {
@@ -29,118 +27,260 @@ const HistoryScreen = ({ navigation }) => {
             "Are you sure you want to delete this workout?",
             [
                 { text: "Cancel", style: "cancel" },
-                { text: "OK", onPress: () => deleteWorkout(id) }
+                { text: "Delete", onPress: () => deleteWorkout(id), style: "destructive" }
             ]
         );
     };
 
     const deleteWorkout = async (id) => {
         await WorkoutService.deleteWorkout(id);
-        fetchWorkouts(); 
+        fetchWorkouts();
     };
 
     const toggleDetails = (id) => {
-        const currentIndex = expandedWorkoutIds.indexOf(id);
-        const newExpandedIds = [...expandedWorkoutIds];
+        setExpandedWorkoutIds(prev => 
+            prev.includes(id) ? prev.filter(wId => wId !== id) : [...prev, id]
+        );
+    };
 
-        if (currentIndex === -1) {
-            newExpandedIds.push(id); 
-        } else {
-            newExpandedIds.splice(currentIndex, 1); 
-        }
+    const renderWorkout = ({ item: workout }) => {
+        const isExpanded = expandedWorkoutIds.includes(workout.id);
+        const totalSets = workout.exercises.reduce((sum, ex) => sum + ex.sets.length, 0);
+        
+        const formatDuration = (seconds) => {
+            if (!seconds) return '';
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            if (hours > 0) {
+                return `${hours}h ${minutes}m`;
+            }
+            return `${minutes}m`;
+        };
 
-        setExpandedWorkoutIds(newExpandedIds);
+        return (
+            <View style={styles.workoutCard}>
+                <TouchableOpacity 
+                    onPress={() => toggleDetails(workout.id)}
+                    style={styles.workoutHeader}
+                >
+                    <View style={styles.workoutHeaderLeft}>
+                        <Text style={styles.workoutTitle}>{workout.name}</Text>
+                        <View style={styles.workoutMetadata}>
+                            <Text style={styles.workoutDate}>
+                                {moment(workout.date).format('MMM D, YYYY')}
+                            </Text>
+                            {workout.duration && (
+                                <View style={styles.durationContainer}>
+                                    <Ionicons name="time-outline" size={14} color="#666" />
+                                    <Text style={styles.durationText}>
+                                        {formatDuration(workout.duration)}
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+                    </View>
+                    <View style={styles.workoutHeaderRight}>
+                        <View style={styles.statsContainer}>
+                            <Text style={styles.statsNumber}>{workout.exercises.length}</Text>
+                            <Text style={styles.statsLabel}>exercises</Text>
+                        </View>
+                        <View style={styles.statsContainer}>
+                            <Text style={styles.statsNumber}>{totalSets}</Text>
+                            <Text style={styles.statsLabel}>sets</Text>
+                        </View>
+                        <TouchableOpacity 
+                            onPress={() => navigation.navigate('Workout', {
+                                screen: 'New Workout',
+                                params: {
+                                    templateWorkout: workout 
+                                }
+                            })}
+                            style={styles.templateButton}
+                        >
+                            <Ionicons name="copy-outline" size={20} color="#1565C0" />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            onPress={() => handleDeleteWorkout(workout.id)}
+                            style={styles.deleteButton}
+                        >
+                            <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+
+                {isExpanded && (
+                    <View style={styles.exerciseList}>
+                        {workout.exercises.map((exercise, idx) => (
+                            <View key={idx} style={styles.exerciseItem}>
+                                <Text style={styles.exerciseName}>{exercise.name}</Text>
+                                <View style={styles.setsContainer}>
+                                    {exercise.sets.map((set, setIdx) => (
+                                        <View key={setIdx} style={styles.setItem}>
+                                            <Text style={styles.setText}>
+                                                {set.weight}kg × {set.reps}
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            </View>
+                        ))}
+                    </View>
+                )}
+            </View>
+        );
     };
 
     return (
-        <ScrollView style={styles.container}>
-            {workouts.map((workout, index) => (
-                <TouchableOpacity 
-                    key={workout.id} 
-                    style={styles.workoutDetails} 
-                    onPress={() => toggleDetails(workout.id)}
-                >
-                    <View style={styles.workoutHeader}>
-                        <View>
-                            <Text style={styles.workoutTitle}>{workout.name}</Text>
-                            <Text>Date: {moment(workout.date).format('D.M.YYYY')}</Text> 
-                            <Text>Exercises: {workout.exercises.length}</Text>
-                        </View>
-                        <View style={styles.buttonContainer}>
-                            <TouchableOpacity onPress={() => toggleDetails(workout.id)} style={styles.detailsButton}>
-                                <Text style={styles.detailsButtonText}>See Details</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => handleDeleteWorkout(workout.id)} style={styles.deleteButton}>
-                                <Ionicons name="trash" size={24} color="red" />
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                    {expandedWorkoutIds.includes(workout.id) && (
-                        <View style={styles.exerciseDetails}>
-                            {workout.exercises.map((exercise, idx) => (
-                                <View key={`${workout.id}-exercise-${idx}`}>
-                                    <Text style={styles.exerciseName}>{exercise.name}</Text>
-                                    {exercise.sets.map((set, setIdx) => (
-                                        <Text key={`${workout.id}-exercise-${idx}-set-${setIdx}`}>
-                                            {set.reps} reps of {set.weight} lbs
-                                        </Text>
-                                    ))}
-                                </View>
-                            ))}
-                        </View>
-                    )}
-                </TouchableOpacity>
-            ))}
-        </ScrollView>
+        <View style={styles.container}>
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>Workout History</Text>
+                <Text style={styles.headerSubtitle}>
+                    {workouts.length} {workouts.length === 1 ? 'workout' : 'workouts'} recorded
+                </Text>
+            </View>
+            <FlatList
+                data={workouts}
+                renderItem={renderWorkout}
+                keyExtractor={item => item.id}
+                contentContainerStyle={styles.listContainer}
+                showsVerticalScrollIndicator={false}
+            />
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingTop: 20
+        backgroundColor: '#f5f5f5',
     },
-    workoutDetails: {
-        margin: 20,
-        padding: 10,
-        borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 5,
-        backgroundColor: '#f9f9f9'
+    header: {
+        backgroundColor: '#fff',
+        padding: 20,
+        paddingTop: 40,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    headerTitle: {
+        fontSize: 28,
+        fontWeight: '700',
+        color: '#333',
+        marginBottom: 4,
+    },
+    headerSubtitle: {
+        fontSize: 15,
+        color: '#666',
+        fontWeight: '500',
+    },
+    listContainer: {
+        padding: 16,
+        paddingTop: 8,
+    },
+    workoutCard: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        marginBottom: 16,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        marginHorizontal: 2,
     },
     workoutHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center'
+        padding: 16,
+    },
+    workoutHeaderLeft: {
+        flex: 1,
+    },
+    workoutHeaderRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     workoutTitle: {
         fontSize: 18,
-        fontWeight: 'bold'
+        fontWeight: '600',
+        color: '#333',
+        marginBottom: 4,
     },
-    buttonContainer: {
-        flexDirection: 'row',
-        alignItems: 'center'
+    workoutDate: {
+        fontSize: 14,
+        color: '#666',
     },
-    detailsButton: {
-        backgroundColor: '#4CAF50',
-        padding: 5,
-        borderRadius: 5,
-        marginRight: 10,
+    statsContainer: {
+        alignItems: 'center',
+        marginHorizontal: 8,
     },
-    detailsButtonText: {
-        color: '#fff',
-        fontWeight: 'bold'
+    statsNumber: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#1565C0',
+    },
+    statsLabel: {
+        fontSize: 12,
+        color: '#666',
     },
     deleteButton: {
-        padding: 5,
+        padding: 8,
+        marginLeft: 8,
     },
-    exerciseDetails: {
-        marginTop: 10,
-        paddingLeft: 10
+    exerciseList: {
+        paddingHorizontal: 16,
+        paddingBottom: 16,
+    },
+    exerciseItem: {
+        marginTop: 12,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#eee',
     },
     exerciseName: {
-        fontWeight: 'bold'
-    }
+        fontSize: 16,
+        fontWeight: '500',
+        color: '#333',
+        marginBottom: 8,
+    },
+    setsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    setItem: {
+        backgroundColor: '#f0f0f0',
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        borderRadius: 4,
+    },
+    setText: {
+        fontSize: 14,
+        color: '#666',
+    },
+    templateButton: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#E3F2FD',
+        padding: 8,
+        borderRadius: 6,
+        marginRight: 8,
+        width: 36,
+        height: 36,
+    },
+    workoutMetadata: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    durationContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    durationText: {
+        fontSize: 14,
+        color: '#666',
+    },
 });
 
 export default HistoryScreen;

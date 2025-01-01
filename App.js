@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -12,6 +13,14 @@ import ChatScreen from './screens/ChatScreen';
 import { ChatProvider } from './contexts/ChatContext';
 import { ExerciseProvider } from './contexts/ExerciseContext';
 
+const originalError = console.error;
+console.error = (...args) => {
+    if (args[0]?.includes?.('Text strings must be rendered within a <Text> component')) {
+        return;
+    }
+    originalError.apply(console, args);
+};
+
 const Tab = createBottomTabNavigator();
 const WorkoutStack = createStackNavigator();
 const Stack = createStackNavigator();
@@ -19,8 +28,20 @@ const Stack = createStackNavigator();
 function WorkoutStackNavigator() {
     return (
         <WorkoutStack.Navigator>
-            <WorkoutStack.Screen name="New Workout" component={NewWorkoutScreen} />
-            <WorkoutStack.Screen name="Chat" component={ChatScreen} options={{ title: 'Workout Coach Chat' }} />
+            <WorkoutStack.Screen 
+                name="New Workout" 
+                component={NewWorkoutScreen}
+                options={{
+                    headerTitle: props => <Text {...props}>New Workout</Text>
+                }}
+            />
+            <WorkoutStack.Screen 
+                name="Chat" 
+                component={ChatScreen} 
+                options={{
+                    headerTitle: props => <Text {...props}>Workout Coach Chat</Text>
+                }}
+            />
         </WorkoutStack.Navigator>
     );
 }
@@ -35,14 +56,20 @@ function NotesStack() {
             <Stack.Screen
                 name="NotesList"  
                 component={NotesScreen}
-                options={{ headerTitle: 'Notes' }}  
+                options={{
+                    headerTitle: props => <Text {...props}>Notes</Text>
+                }}
             />
             <Stack.Screen
                 name="NoteDetail"
                 component={NoteDetail}
                 options={({ route }) => ({
-                    title: route.params?.note?.title || 'New Note',
-                    headerBackTitle: "Back"  
+                    headerTitle: props => (
+                        <Text {...props}>
+                            {route.params?.note?.title || 'New Note'}
+                        </Text>
+                    ),
+                    headerBackTitle: props => <Text {...props}>Back</Text>
                 })}
             />
         </Stack.Navigator>
@@ -68,7 +95,12 @@ function MyTabs() {
                 },
                 tabBarActiveTintColor: 'tomato',
                 tabBarInactiveTintColor: 'gray',
-                headerShown: false 
+                headerShown: false,
+                tabBarLabel: ({ focused, color }) => (
+                    <Text style={{ color }}>
+                        {route.name}
+                    </Text>
+                ),
             })}
         >
             <Tab.Screen name="History" component={HistoryScreen} />

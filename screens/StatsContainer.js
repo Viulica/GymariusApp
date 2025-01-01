@@ -16,8 +16,7 @@ const StatsContainer = ({ navigation }) => {
             fetchWorkouts();
         });
 
-        fetchWorkouts(); 
-
+        fetchWorkouts();
         return unsubscribe;
     }, [navigation]);
 
@@ -30,26 +29,37 @@ const StatsContainer = ({ navigation }) => {
         } finally {
             setLoading(false);
         }
-    }
-    
+    };
 
     if (loading) {
-        return <ActivityIndicator size="large" color="#0000ff" />
+        return (
+            <View style={styles.container}>
+                <ActivityIndicator size="large" color="#1565C0" />
+            </View>
+        );
     }
+
     if (workouts.length === 0) {
         return (
             <View style={styles.container}>
-                <Text>No workouts to display</Text>
+                <Text style={styles.noDataText}>No workouts to display</Text>
             </View>
         );
     }
 
     return (
         <Stack.Navigator>
-            <Stack.Screen name="StatisticsMain" options={{ headerShown: false }}>
+            <Stack.Screen 
+                name="StatisticsMain" 
+                options={{ headerShown: false }}
+            >
                 {props => <StatisticsScreen {...props} workouts={workouts} />}
             </Stack.Screen>
-            <Stack.Screen name="ExerciseStatistics" component={ExerciseStatisticsScreen} options={{ title: 'Exercise Statistics' }} />
+            <Stack.Screen 
+                name="ExerciseStatistics" 
+                component={ExerciseStatisticsScreen} 
+                options={{ title: 'Exercise Statistics' }} 
+            />
         </Stack.Navigator>
     );
 };
@@ -59,6 +69,12 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    noDataText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 16,
     },
 });
 

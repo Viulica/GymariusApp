@@ -1,22 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 
 const ExercisePicker = ({ exercises, selectedValue, onChange }) => {
     const [open, setOpen] = useState(false); 
+    const [value, setValue] = useState(selectedValue);
     const [items, setItems] = useState(exercises.map(ex => ({
         label: `${ex.name} - ${ex.type}`, 
         value: ex.id,
-    }))); 
+    })));
+
+    const handleValueChange = (newValue) => {
+        if (newValue !== null) {
+            setValue(newValue);
+            onChange(newValue);
+        }
+    };
 
     return (
         <View style={styles.container}>
             <DropDownPicker
                 open={open}
-                value={selectedValue}
+                value={value}
                 items={items}
                 setOpen={setOpen}
-                setValue={onChange}
+                setValue={handleValueChange}
                 setItems={setItems}
                 searchable={true}
                 placeholder="Select an exercise"
