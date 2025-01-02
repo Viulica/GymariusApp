@@ -177,18 +177,22 @@ const StatisticsScreen = ({ workouts }) => {
             </View>
 
             <View style={styles.chartContainer}>
-                <Text style={styles.chartTitle}>Monthly Workout Frequency</Text>
+                <Text style={[styles.chartTitle, { color: '#000' }]}>
+                    Monthly Workout Frequency
+                </Text>
                 <BarChart
                     data={monthlyData}
                     width={Dimensions.get('window').width - 48}
                     height={220}
                     yAxisLabel=""
                     chartConfig={{
-                        backgroundColor: '#ffffff',
-                        backgroundGradientFrom: '#ffffff',
-                        backgroundGradientTo: '#ffffff',
+                        backgroundColor: theme.surface,
+                        backgroundGradientFrom: theme.currentTheme === 'girly' ? '#fff0f5' : theme.surface,
+                        backgroundGradientTo: theme.currentTheme === 'girly' ? '#fff0f5' : theme.surface,
                         decimalPlaces: 0,
-                        color: (opacity = 1) => `rgba(21, 101, 192, ${opacity})`,
+                        color: (opacity = 1) => theme.currentTheme === 'girly' 
+                            ? `rgba(255, 105, 180, ${opacity})`
+                            : `rgba(21, 101, 192, ${opacity})`,
                         labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                         style: {
                             borderRadius: 16,
@@ -196,7 +200,7 @@ const StatisticsScreen = ({ workouts }) => {
                         propsForBackgroundLines: {
                             strokeDasharray: '',
                             strokeWidth: 1,
-                            stroke: "#e3e3e3",
+                            stroke: theme.border,
                         },
                         barPercentage: 0.7,
                     }}
@@ -219,13 +223,18 @@ const StatisticsScreen = ({ workouts }) => {
                             key={index}
                             style={[
                                 styles.exerciseChip,
-                                selectedExercise === exercise && styles.exerciseChipSelected
+                                { 
+                                    backgroundColor: selectedExercise === exercise ? theme.primary : theme.cardBackground,
+                                    borderColor: theme.border
+                                },
                             ]}
                             onPress={() => handleExerciseSelect(exercise)}
                         >
                             <Text style={[
                                 styles.exerciseChipText,
-                                selectedExercise === exercise && styles.exerciseChipTextSelected
+                                { 
+                                    color: selectedExercise === exercise ? '#fff' : theme.text
+                                }
                             ]}>
                                 {exercise}
                             </Text>
@@ -239,28 +248,30 @@ const StatisticsScreen = ({ workouts }) => {
                     </View>
                 ) : exerciseProgress.datasets[0].data.length > 0 ? (
                     <View style={styles.progressChart}>
-                        <Text style={styles.chartTitle}>
-                            {selectedExercise} - Max Weight Progress
+                        <Text style={[styles.chartTitle, { color: theme.text }]}>
+                            {selectedExercise} Progress
                         </Text>
                         <LineChart
                             data={exerciseProgress}
-                            width={Dimensions.get('window').width - 32}
+                            width={Dimensions.get('window').width - 48}
                             height={220}
                             chartConfig={{
-                                backgroundColor: '#ffffff',
-                                backgroundGradientFrom: '#ffffff',
-                                backgroundGradientTo: '#ffffff',
-                                decimalPlaces: 0,
-                                color: (opacity = 1) => `rgba(21, 101, 192, ${opacity})`,
+                                backgroundColor: theme.surface,
+                                backgroundGradientFrom: theme.currentTheme === 'girly' ? '#fff0f5' : theme.surface,
+                                backgroundGradientTo: theme.currentTheme === 'girly' ? '#fff0f5' : theme.surface,
+                                decimalPlaces: 1,
+                                color: (opacity = 1) => theme.currentTheme === 'girly' 
+                                    ? `rgba(255, 105, 180, ${opacity})`
+                                    : `rgba(21, 101, 192, ${opacity})`,
                                 labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                                 style: {
-                                    borderRadius: 16
+                                    borderRadius: 16,
                                 },
-                                propsForDots: {
-                                    r: "6",
-                                    strokeWidth: "2",
-                                    stroke: "#1565C0"
-                                }
+                                propsForBackgroundLines: {
+                                    strokeDasharray: '',
+                                    strokeWidth: 1,
+                                    stroke: theme.border,
+                                },
                             }}
                             style={styles.chart}
                             bezier
@@ -348,7 +359,7 @@ const styles = StyleSheet.create({
     chartTitle: {
         fontSize: 18,
         fontWeight: '600',
-        color: '#333',
+        color: '#000',
         marginBottom: 16,
     },
     chart: {
@@ -376,21 +387,20 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     exerciseChip: {
-        backgroundColor: '#f0f0f0',
         paddingHorizontal: 16,
         paddingVertical: 8,
         borderRadius: 20,
-        marginRight: 8,
-    },
-    exerciseChipSelected: {
-        backgroundColor: '#1565C0',
+        marginRight: 10,
+        borderWidth: 1,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
     },
     exerciseChipText: {
-        color: '#666',
+        fontSize: 14,
         fontWeight: '500',
-    },
-    exerciseChipTextSelected: {
-        color: '#fff',
     },
     progressChart: {
         marginTop: 16,
@@ -405,6 +415,26 @@ const styles = StyleSheet.create({
         color: '#666',
         fontSize: 16,
         textAlign: 'center',
+    },
+    exerciseButton: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        marginRight: 10,
+        borderWidth: 1,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
+    },
+    exerciseButtonText: {
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    exerciseButtonsContainer: {
+        paddingHorizontal: 16,
+        paddingVertical: 10,
     },
 });
 

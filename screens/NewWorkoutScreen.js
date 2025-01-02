@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert, Modal, TextInput, ScrollView, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert, Modal, TextInput, ScrollView, TouchableWithoutFeedback, Keyboard, Vibration } from 'react-native';
 import ExercisePicker from '../components/ExercisePicker';
 import WorkoutService from '../services/WorkoutService';
 import ExerciseCard from '../components/ExerciseCard';
@@ -28,7 +28,6 @@ const BODY_PARTS = [
 const NewWorkoutScreen = ({ navigation, route }) => {
     const { theme } = useTheme();
     const { predefinedExercises, setPredefinedExercises } = useContext(ExerciseContext);
-    const [selectedExerciseId, setSelectedExerciseId] = useState(null);
     const [workoutExercises, setWorkoutExercises] = useState([]);
     const [isCustomExerciseModalVisible, setIsCustomExerciseModalVisible] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
@@ -61,6 +60,10 @@ const NewWorkoutScreen = ({ navigation, route }) => {
     const [stopwatchMs, setStopwatchMs] = useState(0);
     const [countdownIsRunning, setCountdownIsRunning] = useState(false);
     const countdownRef = useRef(null);
+    const typeDropdownHeight = useRef(0);
+    const [workoutTimer, setWorkoutTimer] = useState(0);
+    const [isWorkoutTimerRunning, setIsWorkoutTimerRunning] = useState(false);
+    const workoutTimerRef = useRef(null);
 
     const categoryIcons = {
         'All': 'fitness',
@@ -89,6 +92,9 @@ const NewWorkoutScreen = ({ navigation, route }) => {
             if (countdownRef.current) {
                 clearInterval(countdownRef.current);
             }
+            if (workoutTimerRef.current) {
+                clearInterval(workoutTimerRef.current);
+            }
         };
     }, []);
 
@@ -96,45 +102,54 @@ const NewWorkoutScreen = ({ navigation, route }) => {
         if (route.params?.templateWorkout) {
             const template = route.params.templateWorkout;
             setWorkoutName(template.name + ' (Copy)');
-            
-            const copiedExercises = template.exercises.map(ex => {
-                const newExercise = new Exercise(
-                    ex.id,
-                    ex.name,
-                    ex.type,
-                    ex.bodyPart
-                );
-                
-                ex.sets.forEach(() => {
-                    newExercise.addSet(new Set(0, 0));
-                });
-                
-                return newExercise;
-            });
-            
+            const copiedExercises = template.exercises.map(exercise => ({
+                ...exercise,
+                id: Date.now().toString() + Math.random().toString(),
+                sets: exercise.sets.map(set => ({
+                    ...set,
+                    id: Date.now().toString() + Math.random().toString()
+                }))
+            }));
             setWorkoutExercises(copiedExercises);
         }
     }, [route.params?.templateWorkout]);
 
+    useEffect(() => {
+        const initializeExercises = async () => {
+            try {
+                let exercises = await WorkoutService.getExercises();
+                
+                if (!exercises || exercises.length === 0) {
+                    exercises = [
+                        { id: '1', name: 'Bench Press', type: 'Compound', bodyPart: 'Chest' },
+                        { id: '2', name: 'Squat', type: 'Compound', bodyPart: 'Legs' },
+                        { id: '3', name: 'Deadlift', type: 'Compound', bodyPart: 'Back' },
+                        { id: '4', name: 'Pull-up', type: 'Compound', bodyPart: 'Back' },
+                        { id: '5', name: 'Push-up', type: 'Compound', bodyPart: 'Chest' },
+                        { id: '6', name: 'Shoulder Press', type: 'Compound', bodyPart: 'Shoulders' },
+                        { id: '7', name: 'Bicep Curl', type: 'Isolation', bodyPart: 'Arms' },
+                        { id: '8', name: 'Tricep Extension', type: 'Isolation', bodyPart: 'Arms' },
+                        { id: '9', name: 'Leg Press', type: 'Compound', bodyPart: 'Legs' },
+                        { id: '10', name: 'Lat Pulldown', type: 'Compound', bodyPart: 'Back' },
+                    ];
+                    
+                    for (const exercise of exercises) {
+                        await WorkoutService.addExercise(exercise);
+                    }
+                }
+                
+                setPredefinedExercises(exercises);
+                setFilteredExercises(exercises);
+            } catch (error) {
+                console.error('Error initializing exercises:', error);
+            }
+        };
+
+        initializeExercises();
+    }, []);
+
     const navigateToChatScreen = () => {
         navigation.navigate('Chat', { workoutExercises });
-    };
-
-    const addExerciseToWorkout = () => {
-        if (!selectedExerciseId) return;
-        
-        const exerciseData = predefinedExercises.find(e => e.id === selectedExerciseId);
-        if (exerciseData && !workoutExercises.some(e => e.id === exerciseData.id)) {
-            const newExercise = new Exercise(
-                exerciseData.id, 
-                exerciseData.name, 
-                exerciseData.type, 
-                exerciseData.bodyPart
-            );
-            setWorkoutExercises(prev => [...prev, newExercise]);
-            setIsModalVisible(false);
-            setSelectedExerciseId(null);
-        }
     };
 
     const addSetToExercise = (exerciseId, weight, reps) => {
@@ -167,11 +182,11 @@ const NewWorkoutScreen = ({ navigation, route }) => {
         setChatHistory([]);
     };
 
-    const saveWorkout = async () => {
+    const handleFinishWorkout = () => {
         if (workoutExercises.length === 0) {
             Alert.alert(
                 "Empty Workout", 
-                "No exercises to save. Please add some exercises before saving.",
+                "No exercises to save. Please add some exercises before finishing.",
                 [{ text: "OK" }]
             );
             return;
@@ -189,9 +204,9 @@ const NewWorkoutScreen = ({ navigation, route }) => {
                     text: "Save",
                     onPress: async (name) => {
                         const workoutName = name || 'Unnamed Workout';
-                        const duration = timerSeconds;
-                        stopTimer();
-                        setTimerSeconds(0);
+                        const duration = workoutTimer;
+                        stopWorkoutTimer();
+                        setWorkoutTimer(0);
                         clearChatHistory();
 
                         const workout = {
@@ -211,6 +226,11 @@ const NewWorkoutScreen = ({ navigation, route }) => {
                                 [{ text: "OK" }]
                             );
                             setJustSaved(true);
+                            setWorkoutTimer(0);
+                            setIsWorkoutTimerRunning(false);
+                            if (workoutTimerRef.current) {
+                                clearInterval(workoutTimerRef.current);
+                            }
                             navigation.navigate('History');
                         } catch (error) {
                             Alert.alert(
@@ -264,11 +284,20 @@ const NewWorkoutScreen = ({ navigation, route }) => {
 
     const handleSearch = (query) => {
         setSearchQuery(query);
-        const filtered = predefinedExercises.filter(exercise => 
-            exercise.name.toLowerCase().includes(query.toLowerCase()) ||
-            exercise.bodyPart.toLowerCase().includes(query.toLowerCase()) ||
-            exercise.type.toLowerCase().includes(query.toLowerCase())
-        );
+        let filtered = predefinedExercises;
+        
+        if (selectedCategory !== 'All') {
+            filtered = filtered.filter(exercise => exercise.bodyPart === selectedCategory);
+        }
+        
+        if (query) {
+            filtered = filtered.filter(exercise => 
+                exercise.name.toLowerCase().includes(query.toLowerCase()) ||
+                exercise.type.toLowerCase().includes(query.toLowerCase()) ||
+                exercise.bodyPart.toLowerCase().includes(query.toLowerCase())
+            );
+        }
+        
         setFilteredExercises(filtered);
     };
 
@@ -305,39 +334,25 @@ const NewWorkoutScreen = ({ navigation, route }) => {
         return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     };
 
-    const filterByCategory = async (category) => {
+    const filterByCategory = (category) => {
         setSelectedCategory(category);
-        try {
-            if (category === 'All') {
-                const allExercises = await WorkoutService.getExercises();
-                setFilteredExercises(allExercises);
-            } 
-            else if (category === 'Recent') {
-                // Dohvati zadnje workoute
-                const workouts = await WorkoutService.getWorkouts();
-                const recentExercises = new Set();
-                
-                // Uzmi zadnjih 5 različitih vježbi iz povijesti
-                workouts.reverse().forEach(workout => {
-                    workout.exercises.forEach(exercise => {
-                        if (recentExercises.size < 5) {
-                            recentExercises.add(JSON.stringify(exercise));
-                        }
-                    });
-                });
-                
-                const uniqueRecentExercises = Array.from(recentExercises).map(ex => JSON.parse(ex));
-                setFilteredExercises(uniqueRecentExercises);
-            } 
-            else {
-                // Koristi novu metodu za dohvaćanje vježbi po kategoriji
-                const categoryExercises = await WorkoutService.getExercisesByCategory(category);
-                setFilteredExercises(categoryExercises);
+        let filtered = predefinedExercises;
+        
+        if (category !== 'All') {
+            if (category === 'Recent') {
+                filtered = predefinedExercises.slice(0, 5);
+            } else {
+                filtered = predefinedExercises.filter(exercise => exercise.bodyPart === category);
             }
-        } catch (error) {
-            console.error('Error filtering exercises:', error);
-            setFilteredExercises([]);
         }
+        
+        if (searchQuery) {
+            filtered = filtered.filter(exercise => 
+                exercise.name.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+        }
+        
+        setFilteredExercises(filtered);
     };
 
     useEffect(() => {
@@ -395,28 +410,39 @@ const NewWorkoutScreen = ({ navigation, route }) => {
         setStopwatchMs(0);
     };
 
+    const formatCountdownTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
     const startCountdown = () => {
-        if (!countdownIsRunning) {
-            setCountdownIsRunning(true);
-            const totalSeconds = countdownMinutes * 60 + countdownSecs;
-            setCountdownSeconds(totalSeconds);
-            
-            countdownRef.current = setInterval(() => {
-                setCountdownSeconds(prev => {
-                    if (prev <= 0) {
-                        stopCountdown();
-                        // Jednostavna obavijest koja se može zatvoriti
-                        Alert.alert(
-                            "Time's up!",
-                            "Countdown finished",
-                            [{ text: "OK" }]
-                        );
-                        return 0;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
-        }
+        const totalSeconds = countdownMinutes * 60 + countdownSecs;
+        setCountdownSeconds(totalSeconds);
+        setCountdownIsRunning(true);
+        
+        countdownRef.current = setInterval(() => {
+            setCountdownSeconds(prev => {
+                if (prev <= 1) {
+                    stopCountdown();
+                    Vibration.vibrate([0, 500, 100, 500]);
+                    Alert.alert(
+                        "Time's Up! 🎯",
+                        "Your countdown has finished!",
+                        [
+                            { 
+                                text: "OK",
+                                onPress: () => {
+                                    Vibration.cancel();
+                                }
+                            }
+                        ]
+                    );
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
     };
 
     const stopCountdown = () => {
@@ -452,16 +478,24 @@ const NewWorkoutScreen = ({ navigation, route }) => {
         setTimerMode('stopwatch');
     };
 
+    const handleCopyWorkout = (workout) => {
+        navigation.navigate('Workout', {
+            screen: 'New Workout',
+            params: {
+                templateWorkout: workout
+            }
+        });
+    };
+
     const renderFABs = () => (
         <View style={styles.fabContainer}>
-            {/* Timer FAB */}
             <TouchableOpacity
                 style={[
                     styles.fab,
                     {
                         backgroundColor: theme.accent,
                         borderRadius: 28,
-                        borderBottomRightRadius: 0, // Drugačiji oblik za timer
+                        borderBottomRightRadius: 0,
                     }
                 ]}
                 onPress={openTimerModal}
@@ -473,27 +507,6 @@ const NewWorkoutScreen = ({ navigation, route }) => {
                 />
             </TouchableOpacity>
 
-            {/* Save FAB */}
-            <TouchableOpacity
-                style={[
-                    styles.fab,
-                    {
-                        backgroundColor: theme.primary,
-                        borderRadius: 28,
-                        transform: [{ rotate: '45deg' }],
-                    }
-                ]}
-                onPress={saveWorkout}
-            >
-                <Icon
-                    name="heart"
-                    size={24}
-                    color="#fff"
-                    style={{ transform: [{ rotate: '-45deg' }] }}
-                />
-            </TouchableOpacity>
-
-            {/* Add Exercise FAB */}
             <TouchableOpacity
                 style={[
                     styles.fab,
@@ -512,7 +525,6 @@ const NewWorkoutScreen = ({ navigation, route }) => {
                 />
             </TouchableOpacity>
 
-            {/* Chat FAB */}
             <TouchableOpacity
                 style={[
                     styles.fab,
@@ -534,36 +546,105 @@ const NewWorkoutScreen = ({ navigation, route }) => {
         </View>
     );
 
+    const dynamicStyles = {
+        customExerciseContainer: {
+            paddingTop: 8,
+            borderTopWidth: 1,
+            borderTopColor: 'rgba(0,0,0,0.1)',
+            backgroundColor: theme.surface,
+        }
+    };
+
+    const handleCloseExerciseModal = () => {
+        setIsModalVisible(false);
+        setSearchQuery('');
+        setSelectedCategory('All');
+        setFilteredExercises(predefinedExercises);
+    };
+
+    const startWorkoutTimer = () => {
+        if (!isWorkoutTimerRunning) {
+            setIsWorkoutTimerRunning(true);
+            workoutTimerRef.current = setInterval(() => {
+                setWorkoutTimer(prev => prev + 1);
+            }, 1000);
+        }
+    };
+
+    const stopWorkoutTimer = () => {
+        if (isWorkoutTimerRunning) {
+            setIsWorkoutTimerRunning(false);
+            clearInterval(workoutTimerRef.current);
+        }
+    };
+
     return (
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <View style={[styles.container, { backgroundColor: theme.background }]}>
-                <View style={[styles.timerSection, { backgroundColor: theme.surface }]}>
-                    <View style={styles.timerContent}>
-                        <Icon 
-                            name="timer-outline" 
-                            size={22} 
-                            color={isTimerRunning ? theme.error : theme.textSecondary} 
-                        />
-                        <Text style={[
-                            styles.timerText, 
-                            isTimerRunning && { color: theme.error }
-                        ]}>
-                            {formatTime(timerSeconds)}
-                        </Text>
+                <View style={[styles.header, { backgroundColor: theme.surface }]}>
+                    <View style={styles.headerActions}>
+                        <View style={styles.timerContent}>
+                            <Icon 
+                                name="time" 
+                                size={20} 
+                                color={isWorkoutTimerRunning ? theme.primary : theme.textSecondary}
+                            />
+                            <Text style={[
+                                styles.timerText,
+                                { color: isWorkoutTimerRunning ? theme.primary : theme.textSecondary }
+                            ]}>
+                                {formatTime(workoutTimer)}
+                            </Text>
+                        </View>
+                        {workoutTimer > 0 ? (
+                            <View style={{ flexDirection: 'row', gap: 8 }}>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.startWorkoutButton, 
+                                        { 
+                                            backgroundColor: theme.secondary,
+                                            paddingHorizontal: 12
+                                        }
+                                    ]}
+                                    onPress={isWorkoutTimerRunning ? stopWorkoutTimer : startWorkoutTimer}
+                                >
+                                    <Icon 
+                                        name={isWorkoutTimerRunning ? "pause-circle" : "play-circle"} 
+                                        size={24} 
+                                        color="#fff" 
+                                    />
+                                    <Text style={styles.startWorkoutButtonText}>
+                                        {isWorkoutTimerRunning ? 'Pause' : 'Resume'}
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.startWorkoutButton, 
+                                        { backgroundColor: theme.success }
+                                    ]}
+                                    onPress={handleFinishWorkout}
+                                >
+                                    <Icon name="checkmark" size={18} color="#fff" />
+                                    <Text style={styles.startWorkoutButtonText}>
+                                        Finish
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <TouchableOpacity
+                                style={[
+                                    styles.startWorkoutButton, 
+                                    { backgroundColor: theme.primary }
+                                ]}
+                                onPress={startWorkoutTimer}
+                            >
+                                <Icon name="play" size={18} color="#fff" />
+                                <Text style={styles.startWorkoutButtonText}>
+                                    Start Workout
+                                </Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
-                    <TouchableOpacity
-                        style={[styles.startWorkoutButton, { backgroundColor: theme.primary }]}
-                        onPress={openTimerModal}
-                    >
-                        <Icon 
-                            name={isTimerRunning ? "pause-circle" : "play-circle"} 
-                            size={22} 
-                            color="#fff" 
-                        />
-                        <Text style={styles.startWorkoutButtonText}>
-                            {isTimerRunning ? 'Pause Workout' : 'Start Workout'}
-                        </Text>
-                    </TouchableOpacity>
                 </View>
 
                 <FlatList
@@ -592,48 +673,72 @@ const NewWorkoutScreen = ({ navigation, route }) => {
                 <Modal
                     visible={isModalVisible}
                     animationType="slide"
-                    presentationStyle="pageSheet"
+                    transparent={false}
                 >
-                    <View style={styles.modalContainer}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Add Exercise</Text>
-                            <TouchableOpacity onPress={() => setIsModalVisible(false)}>
-                                <Icon name="close" size={24} />
+                    <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
+                        <View style={[styles.modalHeader, { backgroundColor: theme.surface }]}>
+                            <Text style={[
+                                styles.modalTitle, 
+                                { 
+                                    color: theme.text,
+                                    fontFamily: theme.titleFont,
+                                    fontSize: 24,
+                                    marginTop: 40,
+                                    marginBottom: 16,
+                                    marginHorizontal: 16,
+                                }
+                            ]}>
+                                Add Exercise
+                            </Text>
+                            <TouchableOpacity 
+                                onPress={handleCloseExerciseModal}
+                                style={styles.closeButton}
+                            >
+                                <Icon name="close" size={24} color={theme.text} />
                             </TouchableOpacity>
                         </View>
 
                         <TextInput
-                            style={styles.searchInput}
+                            style={[
+                                styles.searchInput, 
+                                { 
+                                    backgroundColor: theme.surface,
+                                    color: theme.text,
+                                    borderColor: theme.border
+                                }
+                            ]}
                             placeholder="Search exercises..."
-                            placeholderTextColor="#999"
+                            placeholderTextColor={theme.textSecondary}
                             value={searchQuery}
                             onChangeText={handleSearch}
                         />
 
-                        <View style={styles.categoriesContainer}>
+                        <View style={[styles.categoriesContainer, { backgroundColor: theme.surface }]}>
                             <ScrollView 
                                 horizontal 
-                                showsHorizontalScrollIndicator={false} 
+                                showsHorizontalScrollIndicator={false}
                                 style={styles.categoryScroll}
                             >
-                                {['All', 'Recent', 'Chest', 'Back', 'Legs', 'Arms', 'Shoulders'].map(category => (
-                                    <TouchableOpacity 
+                                {['All', 'Recent', ...BODY_PARTS.map(bp => bp.value)].map((category) => (
+                                    <TouchableOpacity
                                         key={category}
                                         style={[
                                             styles.categoryPill,
-                                            selectedCategory === category && styles.categoryPillSelected
+                                            selectedCategory === category && { backgroundColor: theme.primary },
+                                            { backgroundColor: selectedCategory === category ? theme.primary : theme.cardBackground }
                                         ]}
                                         onPress={() => filterByCategory(category)}
                                     >
                                         <View style={styles.categoryContent}>
                                             <Icon 
                                                 name={categoryIcons[category]} 
-                                                size={16} 
-                                                color={selectedCategory === category ? '#fff' : '#666'} 
+                                                size={20} 
+                                                color={selectedCategory === category ? '#fff' : theme.text} 
                                             />
                                             <Text style={[
                                                 styles.categoryPillText,
-                                                selectedCategory === category && styles.categoryPillTextSelected
+                                                selectedCategory === category && { color: '#fff' },
+                                                { color: selectedCategory === category ? '#fff' : theme.text }
                                             ]}>
                                                 {category}
                                             </Text>
@@ -646,104 +751,216 @@ const NewWorkoutScreen = ({ navigation, route }) => {
                         <View style={styles.exerciseListContainer}>
                             <FlatList
                                 data={filteredExercises}
-                                keyExtractor={item => item.id.toString()}
                                 renderItem={({ item }) => (
-                                    <TouchableOpacity 
-                                        style={styles.exerciseItem}
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.exerciseItem,
+                                            { backgroundColor: theme.surface }
+                                        ]}
                                         onPress={() => {
-                                            setSelectedExerciseId(item.id);
-                                            addExerciseToWorkout();
+                                            const newExercise = new Exercise(
+                                                item.id,
+                                                item.name,
+                                                item.type,
+                                                item.bodyPart
+                                            );
+                                            setWorkoutExercises(prev => [...prev, newExercise]);
+                                            handleCloseExerciseModal();
                                         }}
                                     >
                                         <View style={styles.exerciseItemContent}>
                                             <View>
-                                                <Text style={styles.exerciseName}>{item.name}</Text>
-                                                <Text style={styles.exerciseDetail}>{item.bodyPart} • {item.type}</Text>
+                                                <Text style={[styles.exerciseName, { color: theme.text }]}>
+                                                    {item.name}
+                                                </Text>
+                                                <Text style={[styles.exerciseDetail, { color: theme.textSecondary }]}>
+                                                    {item.type} • {item.bodyPart}
+                                                </Text>
                                             </View>
-                                            <Icon name="add-circle-outline" size={24} color="#1565C0" />
+                                            <Icon name="add-circle-outline" size={24} color={theme.primary} />
                                         </View>
                                     </TouchableOpacity>
                                 )}
-                                ItemSeparatorComponent={() => <View style={styles.separator} />}
-                                ListFooterComponent={
-                                    <TouchableOpacity 
-                                        style={styles.customExerciseButton}
-                                        onPress={handleAddCustomExercise}
-                                    >
-                                        <Text style={styles.customExerciseButtonText}>+ Add Custom Exercise</Text>
-                                    </TouchableOpacity>
-                                }
+                                ItemSeparatorComponent={() => (
+                                    <View style={[styles.separator, { backgroundColor: theme.border }]} />
+                                )}
+                                keyExtractor={item => item.id}
                             />
+                        </View>
+
+                        <View style={dynamicStyles.customExerciseContainer}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.customExerciseButton, 
+                                    { 
+                                        backgroundColor: theme.primary,
+                                        marginHorizontal: 16,
+                                        marginBottom: 24
+                                    }
+                                ]}
+                                onPress={() => {
+                                    setIsModalVisible(false);
+                                    setIsCustomExerciseModalVisible(true);
+                                }}
+                            >
+                                <Text style={[
+                                    styles.customExerciseButtonText,
+                                    {
+                                        fontSize: 15
+                                    }
+                                ]}>
+                                    Create Custom Exercise
+                                </Text>
+                            </TouchableOpacity>
                         </View>
                     </View>
                 </Modal>
 
                 <Modal
-                    animationType="slide"
-                    transparent={false}
                     visible={isCustomExerciseModalVisible}
-                    onRequestClose={() => setIsCustomExerciseModalVisible(false)}
+                    animationType="slide"
+                    transparent={true}
                 >
-                    <View style={styles.customExerciseModalView}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.formTitle}>Add Custom Exercise</Text>
-                            <TouchableOpacity onPress={() => setIsCustomExerciseModalVisible(false)}>
-                                <Icon name="close" size={24} />
+                    <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
+                        <View style={[styles.modalHeader, { backgroundColor: theme.surface }]}>
+                            <Text style={[
+                                styles.modalTitle,
+                                {
+                                    color: theme.text,
+                                    fontFamily: theme.titleFont,
+                                    marginTop: 40,
+                                    marginBottom: 16,
+                                    marginHorizontal: 16,
+                                    fontSize: 24
+                                }
+                            ]}>
+                                Create Custom Exercise
+                            </Text>
+                            <TouchableOpacity 
+                                onPress={() => setIsCustomExerciseModalVisible(false)}
+                                style={[styles.closeButton, { marginTop: 40 }]}
+                            >
+                                <Icon name="close" size={24} color={theme.text} />
                             </TouchableOpacity>
                         </View>
 
                         <View style={styles.customExerciseForm}>
-                            <Text style={styles.inputLabel}>Exercise Name</Text>
-                            <TextInput
-                                style={styles.customInput}
-                                placeholder="Enter exercise name"
-                                placeholderTextColor="#999"
-                                value={customExercise.name}
-                                onChangeText={(text) => setCustomExercise(prev => ({ ...prev, name: text }))}
-                            />
+                            <View style={styles.formContainer}>
+                                <Text style={[styles.inputLabel, { color: theme.text }]}>Exercise Name</Text>
+                                <TextInput
+                                    style={[
+                                        styles.customInput,
+                                        { 
+                                            backgroundColor: theme.surface,
+                                            color: theme.text,
+                                            borderColor: theme.border
+                                        }
+                                    ]}
+                                    value={customExercise.name}
+                                    onChangeText={(text) => setCustomExercise(prev => ({ ...prev, name: text }))}
+                                    placeholder="Enter exercise name"
+                                    placeholderTextColor={theme.textSecondary}
+                                />
 
-                            <Text style={styles.inputLabel}>Type</Text>
-                            <DropDownPicker
-                                open={openType}
-                                value={customExercise.type}
-                                items={exerciseTypes}
-                                setOpen={setOpenType}
-                                setValue={(value) => setCustomExercise(prev => ({ ...prev, type: value() }))}
-                                style={styles.dropdown}
-                                dropDownContainerStyle={styles.dropdownContainer}
-                                listItemContainerStyle={styles.dropdownItem}
-                                placeholder="Select type"
-                                placeholderStyle={{
-                                    color: "#999"
-                                }}
-                                zIndex={2000}
-                            />
+                                <View style={styles.dropdownSection}>
+                                    <Text style={[styles.inputLabel, { color: theme.text }]}>Exercise Type</Text>
+                                    <DropDownPicker
+                                        open={openType}
+                                        value={customExercise.type}
+                                        items={exerciseTypes}
+                                        setOpen={setOpenType}
+                                        setValue={(callback) => {
+                                            const value = callback(customExercise.type);
+                                            setCustomExercise(prev => ({ ...prev, type: value }));
+                                        }}
+                                        style={[styles.dropdown, { backgroundColor: theme.surface }]}
+                                        textStyle={{ color: theme.text }}
+                                        dropDownContainerStyle={[
+                                            styles.dropdownContainer, 
+                                            { 
+                                                backgroundColor: theme.surface,
+                                                position: 'absolute',
+                                                top: 50,
+                                                zIndex: 2000
+                                            }
+                                        ]}
+                                        placeholderStyle={{ color: theme.textSecondary }}
+                                        placeholder="Select exercise type"
+                                        zIndex={2000}
+                                        onOpen={() => setOpenBodyPart(false)}
+                                        listMode="SCROLLVIEW"
+                                        onLayout={({nativeEvent}) => {
+                                            typeDropdownHeight.current = nativeEvent.layout.height;
+                                        }}
+                                    />
+                                </View>
 
-                            <Text style={styles.inputLabel}>Body Part</Text>
-                            <DropDownPicker
-                                open={openBodyPart}
-                                value={customExercise.bodyPart}
-                                items={bodyParts}
-                                setOpen={setOpenBodyPart}
-                                setValue={(value) => setCustomExercise(prev => ({ ...prev, bodyPart: value() }))}
-                                style={styles.dropdown}
-                                dropDownContainerStyle={styles.dropdownContainer}
-                                listItemContainerStyle={styles.dropdownItem}
-                                placeholder="Select body part"
-                                placeholderStyle={{
-                                    color: "#999"
-                                }}
-                                zIndex={1000}
-                            />
+                                <View style={[
+                                    styles.dropdownSection, 
+                                    { 
+                                        marginTop: 16,
+                                        transform: [{ 
+                                            translateY: openType ? typeDropdownHeight.current : 0 
+                                        }]
+                                    }
+                                ]}>
+                                    <Text style={[styles.inputLabel, { color: theme.text }]}>Body Part</Text>
+                                    <DropDownPicker
+                                        open={openBodyPart}
+                                        value={customExercise.bodyPart}
+                                        items={bodyParts}
+                                        setOpen={setOpenBodyPart}
+                                        setValue={(callback) => {
+                                            const value = callback(customExercise.bodyPart);
+                                            setCustomExercise(prev => ({ ...prev, bodyPart: value }));
+                                        }}
+                                        style={[styles.dropdown, { backgroundColor: theme.surface }]}
+                                        textStyle={{ color: theme.text }}
+                                        dropDownContainerStyle={[
+                                            styles.dropdownContainer, 
+                                            { 
+                                                backgroundColor: theme.surface,
+                                                position: 'absolute',
+                                                top: 50,
+                                                zIndex: 1000
+                                            }
+                                        ]}
+                                        placeholderStyle={{ color: theme.textSecondary }}
+                                        placeholder="Select body part"
+                                        zIndex={1000}
+                                        onOpen={() => setOpenType(false)}
+                                        listMode="SCROLLVIEW"
+                                    />
+                                </View>
+                            </View>
                         </View>
 
-                        <View style={styles.customExerciseButtons}>
-                            <TouchableOpacity 
-                                onPress={saveCustomExercise} 
-                                style={styles.saveCustomExerciseButton}
-                                disabled={!customExercise.name || !customExercise.type || !customExercise.bodyPart}
+                        <View style={styles.customExerciseActions}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.saveExerciseButton,
+                                    { backgroundColor: theme.primary }
+                                ]}
+                                onPress={async () => {
+                                    if (customExercise.name && customExercise.type && customExercise.bodyPart) {
+                                        const newExercise = {
+                                            id: Date.now().toString(),
+                                            name: customExercise.name,
+                                            type: customExercise.type,
+                                            bodyPart: customExercise.bodyPart
+                                        };
+                                        
+                                        await WorkoutService.addExercise(newExercise);
+                                        setPredefinedExercises(prev => [...prev, newExercise]);
+                                        setFilteredExercises(prev => [...prev, newExercise]);
+                                        setCustomExercise({ name: '', type: '', bodyPart: '' });
+                                        setIsCustomExerciseModalVisible(false);
+                                    } else {
+                                        Alert.alert("Error", "Please fill in all fields");
+                                    }
+                                }}
                             >
-                                <Text style={styles.buttonText}>Save Exercise</Text>
+                                <Text style={styles.saveExerciseButtonText}>Save Exercise</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -797,52 +1014,68 @@ const NewWorkoutScreen = ({ navigation, route }) => {
 
                             {timerMode === 'countdown' ? (
                                 <View style={styles.countdownSettings}>
-                                    <Text style={[styles.countdownLabel, { color: theme.text }]}>Set Timer Duration:</Text>
-                                    <View style={styles.countdownInput}>
-                                        <View style={styles.timeInputGroup}>
-                                            <TouchableOpacity
-                                                style={[styles.countdownButton, { backgroundColor: theme.secondary }]}
-                                                onPress={() => setCountdownMinutes(prev => Math.min(prev + 1, 99))}
-                                            >
-                                                <Icon name="chevron-up" size={24} color="#fff" />
-                                            </TouchableOpacity>
-                                            <View style={styles.timeUnit}>
-                                                <Text style={[styles.countdownValue, { color: theme.text }]}>
-                                                    {countdownMinutes.toString().padStart(2, '0')}
-                                                </Text>
-                                                <Text style={[styles.timeLabel, { color: theme.textSecondary }]}>min</Text>
-                                            </View>
-                                            <TouchableOpacity
-                                                style={[styles.countdownButton, { backgroundColor: theme.secondary }]}
-                                                onPress={() => setCountdownMinutes(prev => Math.max(prev - 1, 0))}
-                                            >
-                                                <Icon name="chevron-down" size={24} color="#fff" />
-                                            </TouchableOpacity>
-                                        </View>
+                                    {!countdownIsRunning ? (
+                                        <>
+                                            <Text style={[styles.countdownLabel, { color: theme.text }]}>
+                                                Set Timer Duration:
+                                            </Text>
+                                            <View style={styles.countdownInput}>
+                                                <View style={styles.timeInputGroup}>
+                                                    <TouchableOpacity
+                                                        style={[styles.countdownButton, { backgroundColor: theme.secondary }]}
+                                                        onPress={() => setCountdownMinutes(prev => Math.min(prev + 1, 99))}
+                                                    >
+                                                        <Icon name="chevron-up" size={24} color="#fff" />
+                                                    </TouchableOpacity>
+                                                    <View style={styles.timeUnit}>
+                                                        <Text style={[styles.countdownValue, { color: theme.text }]}>
+                                                            {countdownMinutes.toString().padStart(2, '0')}
+                                                        </Text>
+                                                        <Text style={[styles.timeLabel, { color: theme.textSecondary }]}>min</Text>
+                                                    </View>
+                                                    <TouchableOpacity
+                                                        style={[styles.countdownButton, { backgroundColor: theme.secondary }]}
+                                                        onPress={() => setCountdownMinutes(prev => Math.max(prev - 1, 0))}
+                                                    >
+                                                        <Icon name="chevron-down" size={24} color="#fff" />
+                                                    </TouchableOpacity>
+                                                </View>
 
-                                        <Text style={[styles.countdownValue, { color: theme.text }]}>:</Text>
+                                                <Text style={[styles.countdownValue, { color: theme.text }]}>:</Text>
 
-                                        <View style={styles.timeInputGroup}>
-                                            <TouchableOpacity
-                                                style={[styles.countdownButton, { backgroundColor: theme.secondary }]}
-                                                onPress={() => setCountdownSecs(prev => Math.min(prev + 5, 59))}
-                                            >
-                                                <Icon name="chevron-up" size={24} color="#fff" />
-                                            </TouchableOpacity>
-                                            <View style={styles.timeUnit}>
-                                                <Text style={[styles.countdownValue, { color: theme.text }]}>
-                                                    {countdownSecs.toString().padStart(2, '0')}
-                                                </Text>
-                                                <Text style={[styles.timeLabel, { color: theme.textSecondary }]}>sec</Text>
+                                                <View style={styles.timeInputGroup}>
+                                                    <TouchableOpacity
+                                                        style={[styles.countdownButton, { backgroundColor: theme.secondary }]}
+                                                        onPress={() => setCountdownSecs(prev => Math.min(prev + 5, 59))}
+                                                    >
+                                                        <Icon name="chevron-up" size={24} color="#fff" />
+                                                    </TouchableOpacity>
+                                                    <View style={styles.timeUnit}>
+                                                        <Text style={[styles.countdownValue, { color: theme.text }]}>
+                                                            {countdownSecs.toString().padStart(2, '0')}
+                                                        </Text>
+                                                        <Text style={[styles.timeLabel, { color: theme.textSecondary }]}>sec</Text>
+                                                    </View>
+                                                    <TouchableOpacity
+                                                        style={[styles.countdownButton, { backgroundColor: theme.secondary }]}
+                                                        onPress={() => setCountdownSecs(prev => Math.max(prev - 5, 0))}
+                                                    >
+                                                        <Icon name="chevron-down" size={24} color="#fff" />
+                                                    </TouchableOpacity>
+                                                </View>
                                             </View>
-                                            <TouchableOpacity
-                                                style={[styles.countdownButton, { backgroundColor: theme.secondary }]}
-                                                onPress={() => setCountdownSecs(prev => Math.max(prev - 5, 0))}
-                                            >
-                                                <Icon name="chevron-down" size={24} color="#fff" />
-                                            </TouchableOpacity>
+                                        </>
+                                    ) : (
+                                        <View style={styles.timerDisplay}>
+                                            <Text style={[styles.countdownValue, { 
+                                                color: theme.text,
+                                                fontSize: 48,
+                                                fontWeight: 'bold'
+                                            }]}>
+                                                {formatCountdownTime(countdownSeconds)}
+                                            </Text>
                                         </View>
-                                    </View>
+                                    )}
                                 </View>
                             ) : (
                                 <View style={styles.timerDisplay}>
@@ -856,27 +1089,27 @@ const NewWorkoutScreen = ({ navigation, route }) => {
                                 <TouchableOpacity
                                     style={[
                                         styles.timerButton,
-                                        timerMode === 'stopwatch' ? 
-                                            (isStopwatchRunning ? styles.timerButtonStop : styles.timerButtonStart) :
-                                            (countdownIsRunning ? styles.timerButtonStop : styles.timerButtonStart),
                                         { backgroundColor: theme.primary }
                                     ]}
-                                    onPress={timerMode === 'stopwatch' ? 
-                                        (isStopwatchRunning ? stopStopwatch : startStopwatch) :
-                                        (countdownIsRunning ? stopCountdown : startCountdown)
+                                    onPress={timerMode === 'countdown' ? 
+                                        (countdownIsRunning ? stopCountdown : startCountdown) :
+                                        (isStopwatchRunning ? stopStopwatch : startStopwatch)
                                     }
                                 >
                                     <Text style={styles.timerButtonText}>
-                                        {timerMode === 'stopwatch' ?
-                                            (isStopwatchRunning ? 'Stop' : 'Start') :
-                                            (countdownIsRunning ? 'Stop' : 'Start')
+                                        {timerMode === 'countdown' ?
+                                            (countdownIsRunning ? 'Stop' : 'Start') :
+                                            (isStopwatchRunning ? 'Stop' : 'Start')
                                         }
                                     </Text>
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
-                                    style={[styles.timerButton, { backgroundColor: theme.secondary }]}
-                                    onPress={timerMode === 'stopwatch' ? resetStopwatch : resetCountdown}
+                                    style={[
+                                        styles.timerButton,
+                                        { backgroundColor: theme.secondary }
+                                    ]}
+                                    onPress={timerMode === 'countdown' ? resetCountdown : resetStopwatch}
                                 >
                                     <Text style={styles.timerButtonText}>Reset</Text>
                                 </TouchableOpacity>
@@ -936,9 +1169,13 @@ const styles = StyleSheet.create({
     modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
-        marginTop: 20,
+        alignItems: 'flex-start',
+        paddingRight: 16,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
     },
     addCustomExerciseButton: {
         marginTop: 10,
@@ -980,7 +1217,7 @@ const styles = StyleSheet.create({
     },
     customExerciseForm: {
         flex: 1,
-        paddingTop: 20,
+        zIndex: 1000,
     },
     inputLabel: {
         fontSize: 16,
@@ -999,13 +1236,14 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     dropdown: {
-        borderColor: '#ddd',
+        borderWidth: 1,
         borderRadius: 8,
         height: 50,
     },
     dropdownContainer: {
-        borderColor: '#ddd',
+        borderWidth: 1,
         borderRadius: 8,
+        maxHeight: 150,
     },
     dropdownItem: {
         padding: 10,
@@ -1020,10 +1258,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     header: {
-        padding: 15,
-        backgroundColor: '#fff',
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        paddingTop: 60,
         borderBottomWidth: 1,
-        borderBottomColor: '#eee',
+        borderBottomColor: 'rgba(0,0,0,0.1)',
     },
     dateText: {
         fontSize: 14,
@@ -1045,6 +1284,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
+        flex: 1,
     },
     timerText: {
         fontSize: 20,
@@ -1057,16 +1297,16 @@ const styles = StyleSheet.create({
     startWorkoutButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#1565C0',
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        gap: 6,
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 24,
+        gap: 8,
+        flex: 1,
     },
     startWorkoutButtonText: {
         color: '#fff',
-        fontSize: 14,
-        fontWeight: '500',
+        fontSize: 16,
+        fontWeight: '600',
     },
     addExerciseButton: {
         padding: 10,
@@ -1128,13 +1368,25 @@ const styles = StyleSheet.create({
     },
     modalContainer: {
         flex: 1,
-        backgroundColor: '#f9f9f9',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        paddingRight: 16,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
     },
     modalTitle: {
-        fontSize: 18,
+        fontSize: 24,
         fontWeight: '600',
-        marginBottom: 20,
-        textAlign: 'center',
+    },
+    closeButton: {
+        padding: 12,
+        marginTop: 40,
     },
     searchInput: {
         height: 40,
@@ -1193,17 +1445,13 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     customExerciseButton: {
-        marginTop: 20,
-        marginBottom: 20,
-        padding: 15,
-        backgroundColor: '#FFA000',
-        borderRadius: 5,
+        padding: 12,
+        borderRadius: 8,
         alignItems: 'center',
     },
     customExerciseButtonText: {
         color: '#fff',
-        fontWeight: '600',
-        fontSize: 16,
+        fontWeight: '500',
     },
     categoryPillSelected: {
         backgroundColor: '#1565C0',
@@ -1334,12 +1582,97 @@ const styles = StyleSheet.create({
     },
     timerDisplay: {
         alignItems: 'center',
-        marginVertical: 20,
-        width: '100%',
+        justifyContent: 'center',
+        paddingVertical: 30,
     },
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    formContainer: {
+        padding: 20,
+        zIndex: 1000,
+    },
+    customInput: {
+        height: 50,
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingHorizontal: 16,
+        fontSize: 16,
+        marginBottom: 16,
+    },
+    inputLabel: {
+        fontSize: 16,
+        fontWeight: '500',
+        marginBottom: 8,
+    },
+    dropdown: {
+        borderWidth: 1,
+        borderRadius: 8,
+        height: 50,
+    },
+    dropdownContainer: {
+        borderWidth: 1,
+        borderRadius: 8,
+        maxHeight: 150,
+    },
+    customExerciseActions: {
+        padding: 20,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(0,0,0,0.1)',
+    },
+    saveExerciseButton: {
+        height: 50,
+        borderRadius: 25,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    saveExerciseButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    dropdownSection: {
+        marginBottom: 20,
+        height: 90,
+        position: 'relative',
+        zIndex: 1000,
+    },
+    headerActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 16,
+    },
+    timerContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    timerText: {
+        fontSize: 20,
+        fontWeight: '500',
+    },
+    startWorkoutButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 24,
+        gap: 8,
+    },
+    startWorkoutButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    stopWorkoutButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         justifyContent: 'center',
         alignItems: 'center',
     },

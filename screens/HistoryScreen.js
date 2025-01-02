@@ -68,6 +68,19 @@ const HistoryScreen = ({ navigation }) => {
         );
     };
 
+    const handleCopyWorkout = (workout) => {
+        navigation.navigate('Workout', {
+            screen: 'New Workout',
+            params: {
+                templateWorkout: {
+                    ...workout,
+                    id: Date.now().toString(),
+                    date: new Date().toISOString(),
+                }
+            }
+        });
+    };
+
     const renderWorkout = ({ item: workout }) => {
         const isExpanded = expandedWorkoutIds.includes(workout.id);
         const totalSets = workout.exercises.reduce((sum, ex) => sum + ex.sets.length, 0);
@@ -83,10 +96,10 @@ const HistoryScreen = ({ navigation }) => {
         };
 
         return (
-            <View style={styles.workoutCard}>
+            <View style={[styles.workoutCard, { backgroundColor: theme.surface }]}>
                 <TouchableOpacity 
-                    onPress={() => toggleDetails(workout.id)}
                     style={styles.workoutHeader}
+                    onPress={() => toggleDetails(workout.id)}
                 >
                     <View style={styles.workoutHeaderLeft}>
                         <Text style={styles.workoutTitle}>{workout.name}</Text>
@@ -106,23 +119,26 @@ const HistoryScreen = ({ navigation }) => {
                     </View>
                     <View style={styles.workoutHeaderRight}>
                         <View style={styles.statsContainer}>
-                            <Text style={styles.statsNumber}>{workout.exercises.length}</Text>
-                            <Text style={styles.statsLabel}>exercises</Text>
+                            <Text style={[styles.statsNumber, { color: theme.text }]}>
+                                {workout.exercises.length}
+                            </Text>
+                            <Text style={[styles.statsLabel, { color: theme.textSecondary }]}>
+                                exercises
+                            </Text>
                         </View>
                         <View style={styles.statsContainer}>
-                            <Text style={styles.statsNumber}>{totalSets}</Text>
-                            <Text style={styles.statsLabel}>sets</Text>
+                            <Text style={[styles.statsNumber, { color: theme.text }]}>
+                                {totalSets}
+                            </Text>
+                            <Text style={[styles.statsLabel, { color: theme.textSecondary }]}>
+                                sets
+                            </Text>
                         </View>
                         <TouchableOpacity 
-                            onPress={() => navigation.navigate('Workout', {
-                                screen: 'New Workout',
-                                params: {
-                                    templateWorkout: workout 
-                                }
-                            })}
-                            style={styles.templateButton}
+                            style={[styles.templateButton, { backgroundColor: theme.cardBackground }]}
+                            onPress={() => handleCopyWorkout(workout)}
                         >
-                            <Ionicons name="copy-outline" size={20} color="#1565C0" />
+                            <Ionicons name="copy-outline" size={20} color={theme.primary} />
                         </TouchableOpacity>
                         <TouchableOpacity 
                             onPress={() => handleDeleteWorkout(workout.id)}
@@ -137,11 +153,13 @@ const HistoryScreen = ({ navigation }) => {
                     <View style={styles.exerciseList}>
                         {workout.exercises.map((exercise, idx) => (
                             <View key={idx} style={styles.exerciseItem}>
-                                <Text style={styles.exerciseName}>{exercise.name}</Text>
+                                <Text style={[styles.exerciseName, { color: theme.text }]}>
+                                    {exercise.name}
+                                </Text>
                                 <View style={styles.setsContainer}>
                                     {exercise.sets.map((set, setIdx) => (
                                         <View key={setIdx} style={styles.setItem}>
-                                            <Text style={styles.setText}>
+                                            <Text style={[styles.setText, { color: theme.primary }]}>
                                                 {set.weight}kg × {set.reps}
                                             </Text>
                                         </View>
@@ -154,17 +172,21 @@ const HistoryScreen = ({ navigation }) => {
 
                 {isExpanded && workout.linkedNotes && workout.linkedNotes.length > 0 && (
                     <View style={styles.linkedNotesSection}>
-                        <Text style={styles.linkedNotesTitle}>Linked Notes:</Text>
+                        <Text style={[styles.linkedNotesTitle, { color: theme.text }]}>
+                            Linked Notes:
+                        </Text>
                         {linkedNotes[workout.id]?.map(note => note && (
                             <TouchableOpacity 
                                 key={note.id}
-                                style={styles.linkedNoteItem}
+                                style={[styles.linkedNoteItem, { backgroundColor: theme.cardBackground }]}
                                 onPress={() => navigation.navigate('Notes', {
                                     screen: 'NoteDetail',
                                     params: { note }
                                 })}
                             >
-                                <Text style={styles.linkedNoteText}>{note.title || 'Untitled Note'}</Text>
+                                <Text style={[styles.linkedNoteText, { color: theme.primary }]}>
+                                    {note.title || 'Untitled Note'}
+                                </Text>
                             </TouchableOpacity>
                         ))}
                     </View>

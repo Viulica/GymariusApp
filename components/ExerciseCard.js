@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -10,13 +10,29 @@ const ExerciseCard = ({ exercise, onAddSet, onDeleteSet, onDelete }) => {
     const [lastSet, setLastSet] = useState(null);
     const [isAddingSet, setIsAddingSet] = useState(false);
 
+    useEffect(() => {
+        if (exercise.sets.length > 0) {
+            const lastSetData = exercise.sets[exercise.sets.length - 1];
+            setLastSet(lastSetData);
+            if (!isAddingSet) {
+                setWeight(lastSetData.weight.toString());
+                setReps(lastSetData.reps.toString());
+            }
+        }
+    }, [exercise.sets]);
+
     const handleAddSet = () => {
         if (weight && reps) {
             onAddSet(exercise.id, parseFloat(weight), parseInt(reps));
-            setLastSet({ weight, reps });
-            setWeight('');
-            setReps('');
             setIsAddingSet(false);
+        }
+    };
+
+    const startAddingSet = () => {
+        setIsAddingSet(true);
+        if (lastSet) {
+            setWeight(lastSet.weight.toString());
+            setReps(lastSet.reps.toString());
         }
     };
 
@@ -177,7 +193,7 @@ const ExerciseCard = ({ exercise, onAddSet, onDeleteSet, onDelete }) => {
                 </View>
             ) : (
                 <TouchableOpacity 
-                    onPress={() => setIsAddingSet(true)} 
+                    onPress={startAddingSet} 
                     style={styles.addSetButton}
                 >
                     <Ionicons name="add-circle" size={24} color="#1565C0" />
