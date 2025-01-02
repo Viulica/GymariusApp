@@ -8,6 +8,11 @@ class NoteService {
         return json ? JSON.parse(json) : [];
     }
 
+    static async getNoteById(id) {
+        const notes = await this.getNotes();
+        return notes.find(note => note.id === id);
+    }
+
     static async addNote(note) {
         const notes = await this.getNotes();
         notes.push(note);

@@ -4,8 +4,10 @@ import { BarChart, LineChart } from 'react-native-chart-kit';
 import WorkoutService from '../services/WorkoutService';
 import moment from 'moment';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../contexts/ThemeContext';
 
 const StatisticsScreen = ({ workouts }) => {
+    const { theme } = useTheme();
     const [monthlyData, setMonthlyData] = useState({
         labels: [],
         datasets: [{ data: [] }]
@@ -138,29 +140,39 @@ const StatisticsScreen = ({ workouts }) => {
     };
 
     return (
-        <ScrollView style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Workout Statistics</Text>
-                <Text style={styles.headerSubtitle}>Last 6 months activity</Text>
+        <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
+            <View style={[styles.header, { backgroundColor: theme.surface }]}>
+                <Text style={[
+                    styles.headerTitle, 
+                    { 
+                        color: theme.text,
+                        fontFamily: theme.titleFont 
+                    }
+                ]}>
+                    Workout Statistics
+                </Text>
+                <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
+                    Last 6 months activity
+                </Text>
             </View>
 
             <View style={styles.statsGrid}>
-                <View style={styles.statsCard}>
-                    <Text style={styles.statsNumber}>{totalWorkouts}</Text>
-                    <Text style={styles.statsLabel}>Total Workouts</Text>
+                <View style={[styles.statsCard, { backgroundColor: theme.surface }]}>
+                    <Text style={[styles.statsNumber, { color: theme.primary }]}>{totalWorkouts}</Text>
+                    <Text style={[styles.statsLabel, { color: theme.textSecondary }]}>Total Workouts</Text>
                 </View>
-                <View style={styles.statsCard}>
-                    <Text style={styles.statsNumber}>{totalExercises}</Text>
-                    <Text style={styles.statsLabel}>Total Exercises</Text>
+                <View style={[styles.statsCard, { backgroundColor: theme.surface }]}>
+                    <Text style={[styles.statsNumber, { color: theme.primary }]}>{totalExercises}</Text>
+                    <Text style={[styles.statsLabel, { color: theme.textSecondary }]}>Total Exercises</Text>
                 </View>
-                <View style={styles.statsCard}>
-                    <Text style={styles.statsNumber}>{averageExercises}</Text>
-                    <Text style={styles.statsLabel}>Avg. Exercises/Workout</Text>
+                <View style={[styles.statsCard, { backgroundColor: theme.surface }]}>
+                    <Text style={[styles.statsNumber, { color: theme.primary }]}>{averageExercises}</Text>
+                    <Text style={[styles.statsLabel, { color: theme.textSecondary }]}>Avg. Exercises/Workout</Text>
                 </View>
-                <View style={styles.statsCard}>
-                    <Text style={styles.statsNumber}>{mostFrequentExercise.count}</Text>
-                    <Text style={styles.statsLabel}>Most Used Exercise</Text>
-                    <Text style={styles.statsSubtext}>{mostFrequentExercise.name}</Text>
+                <View style={[styles.statsCard, { backgroundColor: theme.surface }]}>
+                    <Text style={[styles.statsNumber, { color: theme.primary }]}>{mostFrequentExercise.count}</Text>
+                    <Text style={[styles.statsLabel, { color: theme.textSecondary }]}>Most Used Exercise</Text>
+                    <Text style={[styles.statsSubtext, { color: theme.textSecondary }]}>{mostFrequentExercise.name}</Text>
                 </View>
             </View>
 
@@ -272,7 +284,7 @@ const styles = StyleSheet.create({
     header: {
         backgroundColor: '#fff',
         padding: 20,
-        paddingTop: 40,
+        paddingTop: 60,
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
     },

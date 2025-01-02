@@ -12,6 +12,9 @@ import NoteDetail from './screens/NoteDetail';
 import ChatScreen from './screens/ChatScreen';
 import { ChatProvider } from './contexts/ChatContext';
 import { ExerciseProvider } from './contexts/ExerciseContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { useFonts } from 'expo-font';
+import AppLoading from 'expo-app-loading';
 
 const originalError = console.error;
 console.error = (...args) => {
@@ -31,9 +34,7 @@ function WorkoutStackNavigator() {
             <WorkoutStack.Screen 
                 name="New Workout" 
                 component={NewWorkoutScreen}
-                options={{
-                    headerTitle: props => <Text {...props}>New Workout</Text>
-                }}
+                options={{ headerShown: false }}
             />
             <WorkoutStack.Screen 
                 name="Chat" 
@@ -56,20 +57,14 @@ function NotesStack() {
             <Stack.Screen
                 name="NotesList"  
                 component={NotesScreen}
-                options={{
-                    headerTitle: props => <Text {...props}>Notes</Text>
-                }}
+                options={{ headerShown: false }}
             />
             <Stack.Screen
                 name="NoteDetail"
                 component={NoteDetail}
                 options={({ route }) => ({
-                    headerTitle: props => (
-                        <Text {...props}>
-                            {route.params?.note?.title || 'New Note'}
-                        </Text>
-                    ),
-                    headerBackTitle: props => <Text {...props}>Back</Text>
+                    title: route.params?.note?.title || 'New Note',
+                    headerBackTitle: "Back"
                 })}
             />
         </Stack.Navigator>
@@ -77,6 +72,8 @@ function NotesStack() {
 }
 
 function MyTabs() {
+    const { theme } = useTheme();
+    
     return (
         <Tab.Navigator
             screenOptions={({ route }) => ({
@@ -93,8 +90,8 @@ function MyTabs() {
                     }
                     return <Ionicons name={iconName} size={size} color={color} />;
                 },
-                tabBarActiveTintColor: 'tomato',
-                tabBarInactiveTintColor: 'gray',
+                tabBarActiveTintColor: theme.primary,
+                tabBarInactiveTintColor: theme.textSecondary,
                 headerShown: false,
                 tabBarLabel: ({ focused, color }) => (
                     <Text style={{ color }}>
@@ -112,13 +109,23 @@ function MyTabs() {
 }
 
 export default function App() {
+    const [fontsLoaded] = useFonts({
+        'Pacifico': require('./assets/fonts/Pacifico-Regular.ttf'),
+    });
+
+    if (!fontsLoaded) {
+        return <AppLoading />;
+    }
+
     return (
-        <ChatProvider>
-            <ExerciseProvider> 
-                <NavigationContainer>
-                    <MyTabs />
-                </NavigationContainer>
-            </ExerciseProvider>
-        </ChatProvider>
+        <ThemeProvider>
+            <ChatProvider>
+                <ExerciseProvider> 
+                    <NavigationContainer>
+                        <MyTabs />
+                    </NavigationContainer>
+                </ExerciseProvider>
+            </ChatProvider>
+        </ThemeProvider>
     );
 }

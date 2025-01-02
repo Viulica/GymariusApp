@@ -10,6 +10,7 @@ import { ExerciseContext } from '../contexts/ExerciseContext';
 import Icon from 'react-native-vector-icons/Ionicons';
 import moment from 'moment';
 import DropDownPicker from 'react-native-dropdown-picker';
+import { useTheme } from '../contexts/ThemeContext';
 
 const EXERCISE_TYPES = [
     { label: 'Compound', value: 'Compound' },
@@ -25,6 +26,7 @@ const BODY_PARTS = [
 ];
 
 const NewWorkoutScreen = ({ navigation, route }) => {
+    const { theme } = useTheme();
     const { predefinedExercises, setPredefinedExercises } = useContext(ExerciseContext);
     const [selectedExerciseId, setSelectedExerciseId] = useState(null);
     const [workoutExercises, setWorkoutExercises] = useState([]);
@@ -50,15 +52,15 @@ const NewWorkoutScreen = ({ navigation, route }) => {
     const [justSaved, setJustSaved] = useState(false);
     const [isTimerModalVisible, setIsTimerModalVisible] = useState(false);
     const [timerMode, setTimerMode] = useState('stopwatch');
-    const [countdownSeconds, setCountdownSeconds] = useState(60);
+    const [countdownMinutes, setCountdownMinutes] = useState(0);
+    const [countdownSecs, setCountdownSecs] = useState(0);
+    const [countdownSeconds, setCountdownSeconds] = useState(0);
     const [stopwatchSeconds, setStopwatchSeconds] = useState(0);
     const [isStopwatchRunning, setIsStopwatchRunning] = useState(false);
     const stopwatchRef = useRef(null);
-    const [countdownMinutes, setCountdownMinutes] = useState(1);
+    const [stopwatchMs, setStopwatchMs] = useState(0);
     const [countdownIsRunning, setCountdownIsRunning] = useState(false);
     const countdownRef = useRef(null);
-    const [stopwatchMs, setStopwatchMs] = useState(0);
-    const [countdownSecs, setCountdownSecs] = useState(0);
 
     const categoryIcons = {
         'All': 'fitness',
@@ -81,11 +83,11 @@ const NewWorkoutScreen = ({ navigation, route }) => {
             if (timerRef.current) {
                 clearInterval(timerRef.current);
             }
-            if (countdownRef.current) {
-                clearInterval(countdownRef.current);
-            }
             if (stopwatchRef.current) {
                 clearInterval(stopwatchRef.current);
+            }
+            if (countdownRef.current) {
+                clearInterval(countdownRef.current);
             }
         };
     }, []);
@@ -166,10 +168,6 @@ const NewWorkoutScreen = ({ navigation, route }) => {
     };
 
     const saveWorkout = async () => {
-        const duration = timerSeconds;
-        stopTimer();
-        setTimerSeconds(0);
-        clearChatHistory();
         if (workoutExercises.length === 0) {
             Alert.alert(
                 "Empty Workout", 
@@ -179,31 +177,56 @@ const NewWorkoutScreen = ({ navigation, route }) => {
             return;
         }
 
-        const workout = {
-            name: workoutName || 'Unnamed Workout',
-            id: `workout-${new Date().getTime()}`,
-            date: new Date().toISOString(),
-            exercises: workoutExercises,
-            duration: duration
-        };
+        Alert.prompt(
+            "Name Your Workout",
+            "Enter a name for this workout:",
+            [
+                {
+                    text: "Cancel",
+                    style: "cancel"
+                },
+                {
+                    text: "Save",
+                    onPress: async (name) => {
+                        const workoutName = name || 'Unnamed Workout';
+                        const duration = timerSeconds;
+                        stopTimer();
+                        setTimerSeconds(0);
+                        clearChatHistory();
 
-        try {
-            await WorkoutService.addWorkout(workout);
-            Alert.alert(
-                "Success", 
-                "Workout saved successfully!",
-                [{ text: "OK" }]
-            );
-            setJustSaved(true);
-            navigation.navigate('History');
-        } catch (error) {
-            Alert.alert(
-                "Error", 
-                "Failed to save the workout. Please try again.",
-                [{ text: "OK" }]
-            );
-            console.error("Failed to save workout:", error);
-        }
+                        const workout = {
+                            name: workoutName,
+                            id: `workout-${new Date().getTime()}`,
+                            date: new Date().toISOString(),
+                            exercises: workoutExercises,
+                            duration: duration,
+                            linkedNotes: []
+                        };
+
+                        try {
+                            await WorkoutService.addWorkout(workout);
+                            Alert.alert(
+                                "Success", 
+                                "Workout saved successfully!",
+                                [{ text: "OK" }]
+                            );
+                            setJustSaved(true);
+                            navigation.navigate('History');
+                        } catch (error) {
+                            Alert.alert(
+                                "Error", 
+                                "Failed to save the workout. Please try again.",
+                                [{ text: "OK" }]
+                            );
+                            console.error("Failed to save workout:", error);
+                        }
+                    }
+                }
+            ],
+            'plain-text',
+            '',
+            'default'
+        );
     };
 
     const clearWorkout = () => {
@@ -380,9 +403,14 @@ const NewWorkoutScreen = ({ navigation, route }) => {
             
             countdownRef.current = setInterval(() => {
                 setCountdownSeconds(prev => {
-                    if (prev <= 1) {
+                    if (prev <= 0) {
                         stopCountdown();
-                        Alert.alert("Time's up!", "Countdown finished");
+                        // Jednostavna obavijest koja se može zatvoriti
+                        Alert.alert(
+                            "Time's up!",
+                            "Countdown finished",
+                            [{ text: "OK" }]
+                        );
                         return 0;
                     }
                     return prev - 1;
@@ -392,12 +420,10 @@ const NewWorkoutScreen = ({ navigation, route }) => {
     };
 
     const stopCountdown = () => {
-        if (countdownIsRunning) {
-            setCountdownIsRunning(false);
-            if (countdownRef.current) {
-                clearInterval(countdownRef.current);
-                countdownRef.current = null;
-            }
+        setCountdownIsRunning(false);
+        if (countdownRef.current) {
+            clearInterval(countdownRef.current);
+            countdownRef.current = null;
         }
     };
 
@@ -415,58 +441,128 @@ const NewWorkoutScreen = ({ navigation, route }) => {
     };
 
     const resetAllTimers = () => {
-        // Zaustavi sve timere
         stopStopwatch();
         stopCountdown();
         
-        // Resetiraj sve vrijednosti
         setStopwatchSeconds(0);
         setStopwatchMs(0);
-        setCountdownMinutes(1);
+        setCountdownMinutes(0);
         setCountdownSecs(0);
-        setCountdownSeconds(60);
+        setCountdownSeconds(0);
         setTimerMode('stopwatch');
     };
 
+    const renderFABs = () => (
+        <View style={styles.fabContainer}>
+            {/* Timer FAB */}
+            <TouchableOpacity
+                style={[
+                    styles.fab,
+                    {
+                        backgroundColor: theme.accent,
+                        borderRadius: 28,
+                        borderBottomRightRadius: 0, // Drugačiji oblik za timer
+                    }
+                ]}
+                onPress={openTimerModal}
+            >
+                <Icon
+                    name="timer-outline"
+                    size={24}
+                    color="#fff"
+                />
+            </TouchableOpacity>
+
+            {/* Save FAB */}
+            <TouchableOpacity
+                style={[
+                    styles.fab,
+                    {
+                        backgroundColor: theme.primary,
+                        borderRadius: 28,
+                        transform: [{ rotate: '45deg' }],
+                    }
+                ]}
+                onPress={saveWorkout}
+            >
+                <Icon
+                    name="heart"
+                    size={24}
+                    color="#fff"
+                    style={{ transform: [{ rotate: '-45deg' }] }}
+                />
+            </TouchableOpacity>
+
+            {/* Add Exercise FAB */}
+            <TouchableOpacity
+                style={[
+                    styles.fab,
+                    {
+                        backgroundColor: theme.secondary,
+                        borderRadius: 28,
+                        borderTopLeftRadius: 0,
+                    }
+                ]}
+                onPress={() => setIsModalVisible(true)}
+            >
+                <Icon
+                    name="add"
+                    size={24}
+                    color="#fff"
+                />
+            </TouchableOpacity>
+
+            {/* Chat FAB */}
+            <TouchableOpacity
+                style={[
+                    styles.fab,
+                    {
+                        backgroundColor: theme.accent,
+                        borderRadius: 15,
+                        transform: [{ rotate: '45deg' }],
+                    }
+                ]}
+                onPress={navigateToChatScreen}
+            >
+                <Icon
+                    name="chatbubble"
+                    size={24}
+                    color="#fff"
+                    style={{ transform: [{ rotate: '-45deg' }] }}
+                />
+            </TouchableOpacity>
+        </View>
+    );
+
     return (
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={styles.container}>
-                <View style={styles.header}>
-                    <TextInput
-                        style={styles.workoutNameInput}
-                        placeholder="💪 Today's Workout"
-                        placeholderTextColor="#999"
-                        value={workoutName}
-                        onChangeText={setWorkoutName}
-                    />
-                </View>
-
-                <View style={styles.timerSection}>
+            <View style={[styles.container, { backgroundColor: theme.background }]}>
+                <View style={[styles.timerSection, { backgroundColor: theme.surface }]}>
                     <View style={styles.timerContent}>
                         <Icon 
-                            name="time-outline" 
-                            size={24} 
-                            color={isTimerRunning ? "#FF6347" : "#666"}
+                            name="timer-outline" 
+                            size={22} 
+                            color={isTimerRunning ? theme.error : theme.textSecondary} 
                         />
                         <Text style={[
-                            styles.timerText,
-                            isTimerRunning && styles.timerTextRunning
+                            styles.timerText, 
+                            isTimerRunning && { color: theme.error }
                         ]}>
                             {formatTime(timerSeconds)}
                         </Text>
                     </View>
-                    <TouchableOpacity 
-                        style={[
-                            styles.timerButton, 
-                            isTimerRunning ? styles.timerButtonRunning : styles.timerButtonStopped
-                        ]} 
-                        onPress={() => isTimerRunning ? stopTimer() : startTimer()}
+                    <TouchableOpacity
+                        style={[styles.startWorkoutButton, { backgroundColor: theme.primary }]}
+                        onPress={openTimerModal}
                     >
                         <Icon 
                             name={isTimerRunning ? "pause-circle" : "play-circle"} 
-                            size={32} 
+                            size={22} 
                             color="#fff" 
                         />
+                        <Text style={styles.startWorkoutButtonText}>
+                            {isTimerRunning ? 'Pause Workout' : 'Start Workout'}
+                        </Text>
                     </TouchableOpacity>
                 </View>
 
@@ -491,32 +587,7 @@ const NewWorkoutScreen = ({ navigation, route }) => {
                     )}
                 />
 
-                <View style={styles.fabContainer}>
-                    <TouchableOpacity
-                        style={[styles.fab, styles.timerFab]}
-                        onPress={openTimerModal}
-                    >
-                        <Icon name="timer-outline" size={24} color="#fff" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.fab, styles.addFab]}
-                        onPress={() => setIsModalVisible(true)}
-                    >
-                        <Icon name="add" size={24} color="#fff" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.fab, styles.chatFab]}
-                        onPress={navigateToChatScreen}
-                    >
-                        <Icon name="chatbubble-outline" size={24} color="#fff" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.fab, styles.saveFab]}
-                        onPress={saveWorkout}
-                    >
-                        <Icon name="save-outline" size={24} color="#fff" />
-                    </TouchableOpacity>
-                </View>
+                {renderFABs()}
 
                 <Modal
                     visible={isModalVisible}
@@ -682,134 +753,134 @@ const NewWorkoutScreen = ({ navigation, route }) => {
                     visible={isTimerModalVisible}
                     animationType="slide"
                     transparent={true}
-                    onRequestClose={() => {
-                        resetAllTimers();
-                        setIsTimerModalVisible(false);
-                    }}
                 >
-                    <View style={styles.timerModalContainer}>
-                        <View style={styles.timerModalContent}>
+                    <View style={styles.modalOverlay}>
+                        <View style={[styles.timerModalContainer, { backgroundColor: theme.surface }]}>
                             <View style={styles.timerModalHeader}>
-                                <Text style={styles.timerModalTitle}>Timer</Text>
-                                <TouchableOpacity 
-                                    onPress={() => {
-                                        resetAllTimers();
-                                        setIsTimerModalVisible(false);
-                                    }}
-                                >
-                                    <Icon name="close" size={24} color="#333" />
+                                <Text style={[styles.timerModalTitle, { color: theme.text }]}>Workout Timer</Text>
+                                <TouchableOpacity onPress={() => setIsTimerModalVisible(false)}>
+                                    <Icon name="close" size={24} color={theme.text} />
                                 </TouchableOpacity>
                             </View>
 
                             <View style={styles.timerModeSelector}>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={[
                                         styles.timerModeButton,
-                                        timerMode === 'stopwatch' && styles.timerModeButtonActive
+                                        timerMode === 'stopwatch' && { backgroundColor: theme.primary },
                                     ]}
                                     onPress={() => setTimerMode('stopwatch')}
                                 >
                                     <Text style={[
                                         styles.timerModeText,
-                                        timerMode === 'stopwatch' && styles.timerModeTextActive
-                                    ]}>Stopwatch</Text>
+                                        timerMode === 'stopwatch' && { color: '#fff' }
+                                    ]}>
+                                        Stopwatch
+                                    </Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity 
+
+                                <TouchableOpacity
                                     style={[
                                         styles.timerModeButton,
-                                        timerMode === 'countdown' && styles.timerModeButtonActive
+                                        timerMode === 'countdown' && { backgroundColor: theme.primary },
                                     ]}
                                     onPress={() => setTimerMode('countdown')}
                                 >
                                     <Text style={[
                                         styles.timerModeText,
-                                        timerMode === 'countdown' && styles.timerModeTextActive
-                                    ]}>Countdown</Text>
+                                        timerMode === 'countdown' && { color: '#fff' }
+                                    ]}>
+                                        Countdown
+                                    </Text>
                                 </TouchableOpacity>
                             </View>
 
-                            {timerMode === 'stopwatch' ? (
-                                <View style={styles.timerDisplay}>
-                                    <Text style={styles.timerText}>
-                                        {formatStopwatchTime(stopwatchSeconds, stopwatchMs)}
-                                    </Text>
-                                    <View style={styles.timerControls}>
-                                        <TouchableOpacity 
-                                            style={[styles.timerButton, !isStopwatchRunning ? styles.timerButtonStart : styles.timerButtonStop]}
-                                            onPress={isStopwatchRunning ? stopStopwatch : startStopwatch}
-                                        >
-                                            <Text style={styles.timerButtonText}>
-                                                {isStopwatchRunning ? 'Stop' : 'Start'}
-                                            </Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity 
-                                            style={styles.timerButton}
-                                            onPress={resetStopwatch}
-                                        >
-                                            <Text style={styles.timerButtonText}>Reset</Text>
-                                        </TouchableOpacity>
+                            {timerMode === 'countdown' ? (
+                                <View style={styles.countdownSettings}>
+                                    <Text style={[styles.countdownLabel, { color: theme.text }]}>Set Timer Duration:</Text>
+                                    <View style={styles.countdownInput}>
+                                        <View style={styles.timeInputGroup}>
+                                            <TouchableOpacity
+                                                style={[styles.countdownButton, { backgroundColor: theme.secondary }]}
+                                                onPress={() => setCountdownMinutes(prev => Math.min(prev + 1, 99))}
+                                            >
+                                                <Icon name="chevron-up" size={24} color="#fff" />
+                                            </TouchableOpacity>
+                                            <View style={styles.timeUnit}>
+                                                <Text style={[styles.countdownValue, { color: theme.text }]}>
+                                                    {countdownMinutes.toString().padStart(2, '0')}
+                                                </Text>
+                                                <Text style={[styles.timeLabel, { color: theme.textSecondary }]}>min</Text>
+                                            </View>
+                                            <TouchableOpacity
+                                                style={[styles.countdownButton, { backgroundColor: theme.secondary }]}
+                                                onPress={() => setCountdownMinutes(prev => Math.max(prev - 1, 0))}
+                                            >
+                                                <Icon name="chevron-down" size={24} color="#fff" />
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        <Text style={[styles.countdownValue, { color: theme.text }]}>:</Text>
+
+                                        <View style={styles.timeInputGroup}>
+                                            <TouchableOpacity
+                                                style={[styles.countdownButton, { backgroundColor: theme.secondary }]}
+                                                onPress={() => setCountdownSecs(prev => Math.min(prev + 5, 59))}
+                                            >
+                                                <Icon name="chevron-up" size={24} color="#fff" />
+                                            </TouchableOpacity>
+                                            <View style={styles.timeUnit}>
+                                                <Text style={[styles.countdownValue, { color: theme.text }]}>
+                                                    {countdownSecs.toString().padStart(2, '0')}
+                                                </Text>
+                                                <Text style={[styles.timeLabel, { color: theme.textSecondary }]}>sec</Text>
+                                            </View>
+                                            <TouchableOpacity
+                                                style={[styles.countdownButton, { backgroundColor: theme.secondary }]}
+                                                onPress={() => setCountdownSecs(prev => Math.max(prev - 5, 0))}
+                                            >
+                                                <Icon name="chevron-down" size={24} color="#fff" />
+                                            </TouchableOpacity>
+                                        </View>
                                     </View>
                                 </View>
                             ) : (
                                 <View style={styles.timerDisplay}>
-                                    <View style={styles.countdownSettings}>
-                                        <Text style={styles.countdownLabel}>Time:</Text>
-                                        <View style={styles.countdownInput}>
-                                            <View style={styles.timeInput}>
-                                                <TouchableOpacity 
-                                                    style={styles.countdownButton}
-                                                    onPress={() => setCountdownMinutes(prev => Math.max(0, prev - 1))}
-                                                >
-                                                    <Icon name="remove" size={24} color="#333" />
-                                                </TouchableOpacity>
-                                                <Text style={styles.countdownValue}>{countdownMinutes}</Text>
-                                                <TouchableOpacity 
-                                                    style={styles.countdownButton}
-                                                    onPress={() => setCountdownMinutes(prev => prev + 1)}
-                                                >
-                                                    <Icon name="add" size={24} color="#333" />
-                                                </TouchableOpacity>
-                                                <Text style={styles.timeLabel}>min</Text>
-                                            </View>
-                                            <View style={styles.timeInput}>
-                                                <TouchableOpacity 
-                                                    style={styles.countdownButton}
-                                                    onPress={() => setCountdownSecs(prev => Math.max(0, prev - 5))}
-                                                >
-                                                    <Icon name="remove" size={24} color="#333" />
-                                                </TouchableOpacity>
-                                                <Text style={styles.countdownValue}>{countdownSecs}</Text>
-                                                <TouchableOpacity 
-                                                    style={styles.countdownButton}
-                                                    onPress={() => setCountdownSecs(prev => Math.min(59, prev + 5))}
-                                                >
-                                                    <Icon name="add" size={24} color="#333" />
-                                                </TouchableOpacity>
-                                                <Text style={styles.timeLabel}>sec</Text>
-                                            </View>
-                                        </View>
-                                    </View>
-                                    {countdownIsRunning && (
-                                        <Text style={styles.timerText}>{formatTime(countdownSeconds)}</Text>
-                                    )}
-                                    <View style={styles.timerControls}>
-                                        <TouchableOpacity 
-                                            style={[styles.timerButton, !countdownIsRunning ? styles.timerButtonStart : styles.timerButtonStop]}
-                                            onPress={countdownIsRunning ? stopCountdown : startCountdown}
-                                        >
-                                            <Text style={styles.timerButtonText}>
-                                                {countdownIsRunning ? 'Stop' : 'Start'}
-                                            </Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity 
-                                            style={styles.timerButton}
-                                            onPress={resetCountdown}
-                                        >
-                                            <Text style={styles.timerButtonText}>Reset</Text>
-                                        </TouchableOpacity>
-                                    </View>
+                                    <Text style={[styles.timerText, { color: theme.text }]}>
+                                        {formatStopwatchTime(stopwatchSeconds, stopwatchMs)}
+                                    </Text>
                                 </View>
                             )}
+
+                            <View style={styles.timerControls}>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.timerButton,
+                                        timerMode === 'stopwatch' ? 
+                                            (isStopwatchRunning ? styles.timerButtonStop : styles.timerButtonStart) :
+                                            (countdownIsRunning ? styles.timerButtonStop : styles.timerButtonStart),
+                                        { backgroundColor: theme.primary }
+                                    ]}
+                                    onPress={timerMode === 'stopwatch' ? 
+                                        (isStopwatchRunning ? stopStopwatch : startStopwatch) :
+                                        (countdownIsRunning ? stopCountdown : startCountdown)
+                                    }
+                                >
+                                    <Text style={styles.timerButtonText}>
+                                        {timerMode === 'stopwatch' ?
+                                            (isStopwatchRunning ? 'Stop' : 'Start') :
+                                            (countdownIsRunning ? 'Stop' : 'Start')
+                                        }
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={[styles.timerButton, { backgroundColor: theme.secondary }]}
+                                    onPress={timerMode === 'stopwatch' ? resetStopwatch : resetCountdown}
+                                >
+                                    <Text style={styles.timerButtonText}>Reset</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </View>
                 </Modal>
@@ -964,36 +1035,38 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 15,
+        padding: 16,
         backgroundColor: '#fff',
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
+        paddingTop: 60,
     },
     timerContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
+        gap: 8,
     },
     timerText: {
-        fontSize: 24,
-        fontWeight: '600',
+        fontSize: 20,
+        fontWeight: '500',
         color: '#666',
-        marginLeft: 10,
     },
     timerTextRunning: {
         color: '#FF6347',
     },
-    timerButton: {
-        padding: 8,
-        borderRadius: 50,
+    startWorkoutButton: {
+        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
+        backgroundColor: '#1565C0',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        gap: 6,
     },
-    timerButtonStopped: {
-        backgroundColor: '#4CAF50',
-    },
-    timerButtonRunning: {
-        backgroundColor: '#FF6347',
+    startWorkoutButtonText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '500',
     },
     addExerciseButton: {
         padding: 10,
@@ -1036,7 +1109,6 @@ const styles = StyleSheet.create({
     fab: {
         width: 56,
         height: 56,
-        borderRadius: 28,
         justifyContent: 'center',
         alignItems: 'center',
         elevation: 4,
@@ -1176,17 +1248,14 @@ const styles = StyleSheet.create({
         backgroundColor: '#FF9800',
     },
     timerModalContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.5)',
-    },
-    timerModalContent: {
-        backgroundColor: '#fff',
-        borderRadius: 20,
-        padding: 20,
         width: '90%',
+        padding: 20,
+        borderRadius: 15,
         elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
     },
     timerModalHeader: {
         flexDirection: 'row',
@@ -1210,38 +1279,52 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: '#f0f0f0',
     },
-    timerModeButtonActive: {
-        backgroundColor: '#1565C0',
-    },
     timerModeText: {
-        color: '#666',
         fontWeight: '500',
     },
-    timerModeTextActive: {
-        color: '#fff',
+    countdownSettings: {
+        marginBottom: 20,
     },
-    timerDisplay: {
+    countdownLabel: {
+        fontSize: 16,
+        marginBottom: 8,
+    },
+    countdownInput: {
+        flexDirection: 'row',
+        justifyContent: 'center',
         alignItems: 'center',
-        marginVertical: 20,
-        width: '100%',
+        gap: 10,
     },
-    timerText: {
-        fontSize: 42,
-        fontWeight: '700',
-        color: '#333',
-        fontFamily: 'monospace',
-        letterSpacing: -1,
+    timeInputGroup: {
+        alignItems: 'center',
+    },
+    timeUnit: {
+        alignItems: 'center',
+        marginVertical: 8,
+    },
+    countdownValue: {
+        fontSize: 32,
+        fontWeight: '600',
+    },
+    timeLabel: {
+        fontSize: 12,
     },
     timerControls: {
         flexDirection: 'row',
-        justifyContent: 'space-around',
+        justifyContent: 'center',
+        gap: 12,
+        marginTop: 20,
     },
     timerButton: {
-        backgroundColor: '#1565C0',
-        padding: 15,
-        borderRadius: 25,
-        width: '45%',
+        padding: 12,
+        borderRadius: 20,
+        width: '35%',
         alignItems: 'center',
+    },
+    timerButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
     },
     timerButtonStart: {
         backgroundColor: '#4CAF50',
@@ -1249,57 +1332,16 @@ const styles = StyleSheet.create({
     timerButtonStop: {
         backgroundColor: '#FF5252',
     },
-    timerButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    countdownSettings: {
-        marginBottom: 20,
-    },
-    countdownLabel: {
-        fontSize: 16,
-        color: '#666',
-        marginBottom: 8,
-    },
-    countdownInput: {
-        flexDirection: 'row',
+    timerDisplay: {
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: 30,
+        marginVertical: 20,
         width: '100%',
     },
-    countdownButton: {
-        backgroundColor: '#f0f0f0',
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    countdownMinutes: {
-        fontSize: 24,
-        fontWeight: '600',
-        color: '#333',
-        minWidth: 40,
-        textAlign: 'center',
-    },
-    timeInput: {
-        alignItems: 'center',
-        marginHorizontal: 10,
-    },
-    timeLabel: {
-        fontSize: 12,
-        color: '#666',
-        marginTop: 4,
-    },
-    countdownValue: {
-        fontSize: 24,
-        fontWeight: '600',
-        color: '#333',
-        minWidth: 40,
-        textAlign: 'center',
-        marginVertical: 8,
     },
 });
 

@@ -21,6 +21,8 @@
     "axios": "^1.7.9",
     "dotenv": "^16.4.7",
     "expo": "^52.0.23",
+    "expo-app-loading": "^2.1.1",
+    "expo-font": "~13.0.2",
     "expo-status-bar": "~2.0.0",
     "expo-updates": "~0.26.10",
     "moment": "^2.30.1",

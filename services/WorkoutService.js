@@ -5,7 +5,12 @@ class WorkoutService {
 
     static async getWorkouts() {
         const data = await this.getData();
-        return data ? data.workouts : [];
+        const workouts = data ? data.workouts : [];
+        // Osiguraj da svaki workout ima linkedNotes polje
+        return workouts.map(workout => ({
+            ...workout,
+            linkedNotes: workout.linkedNotes || []
+        }));
     }
 
     static async getExercises() {
@@ -26,7 +31,12 @@ class WorkoutService {
     static async addWorkout(workout) {
         const data = await this.getData();
         if (data && data.workouts) {
-            data.workouts.push(workout);
+            // Osiguraj da novi workout ima linkedNotes polje
+            const workoutWithNotes = {
+                ...workout,
+                linkedNotes: workout.linkedNotes || []
+            };
+            data.workouts.push(workoutWithNotes);
             await AsyncStorage.setItem(this.storageKey, JSON.stringify(data));
         } else {
             console.error("Failed to retrieve data for updating");
@@ -113,6 +123,16 @@ class WorkoutService {
             );
         }
         return [];
+    }
+
+    static async updateWorkouts(workouts) {
+        try {
+            const data = await this.getData();
+            data.workouts = workouts;
+            await AsyncStorage.setItem(this.storageKey, JSON.stringify(data));
+        } catch (error) {
+            console.error('Error updating workouts:', error);
+        }
     }
 }
 

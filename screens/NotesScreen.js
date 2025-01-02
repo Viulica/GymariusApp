@@ -3,8 +3,10 @@ import { View, FlatList, Text, Button, StyleSheet, TouchableOpacity, Alert } fro
 import { useIsFocused } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome'; 
 import NoteService from '../services/NoteService';
+import { useTheme } from '../contexts/ThemeContext';
 
 const NotesScreen = ({ navigation }) => {
+    const { theme } = useTheme();
     const [notes, setNotes] = useState([]);
     const isFocused = useIsFocused();
 
@@ -32,25 +34,45 @@ const NotesScreen = ({ navigation }) => {
     };
 
     const renderItem = ({ item }) => (
-        <View style={styles.note}>
-            <TouchableOpacity style={styles.noteContent} onPress={() => navigation.navigate('NoteDetail', { note: item })}>
-                <Text style={styles.noteText}>{item.title}</Text>
-                <Text numberOfLines={1} style={styles.previewText}>{item.text}</Text>
+        <View style={[styles.note, { backgroundColor: theme.surface }]}>
+            <TouchableOpacity 
+                style={styles.noteContent} 
+                onPress={() => navigation.navigate('NoteDetail', { note: item })}
+            >
+                <Text style={[styles.noteText, { color: theme.text }]}>{item.title}</Text>
+                <Text style={[styles.previewText, { color: theme.textSecondary }]} numberOfLines={1}>
+                    {item.text}
+                </Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.deleteIcon} onPress={() => handleDelete(item.id)}>
-                <Icon name="trash" size={24} color="red" />
+                <Icon name="trash" size={24} color={theme.error} />
             </TouchableOpacity>
         </View>
     );
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
+            <View style={[styles.header, { backgroundColor: theme.surface }]}>
+                <Text style={[
+                    styles.headerTitle, 
+                    { 
+                        color: theme.text,
+                        fontFamily: theme.titleFont 
+                    }
+                ]}>
+                    Your Notes
+                </Text>
+            </View>
             <FlatList
                 data={notes}
                 keyExtractor={item => item.id}
                 renderItem={renderItem}
+                contentContainerStyle={styles.listContent}
             />
-            <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('NoteDetail')}>
+            <TouchableOpacity 
+                style={[styles.addButton, { backgroundColor: theme.primary }]} 
+                onPress={() => navigation.navigate('NoteDetail')}
+            >
                 <Icon name="plus" size={30} color="#fff" />
             </TouchableOpacity>
         </View>
@@ -60,16 +82,37 @@ const NotesScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingTop: 20,
+        backgroundColor: '#f5f5f5',
+    },
+    header: {
+        backgroundColor: '#fff',
+        padding: 20,
+        paddingTop: 60,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    headerTitle: {
+        fontSize: 32,
+        fontWeight: 'bold',
+        color: '#1a1a1a',
+    },
+    listContent: {
+        paddingTop: 12,
     },
     note: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#ccc',
-        backgroundColor: '#f9f9f9'
+        padding: 16,
+        marginHorizontal: 16,
+        marginBottom: 12,
+        borderRadius: 12,
+        backgroundColor: '#fff',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
     noteContent: {
         flex: 1,
@@ -91,9 +134,14 @@ const styles = StyleSheet.create({
         width: 60,
         height: 60,
         borderRadius: 30,
-        backgroundColor: 'blue',
+        backgroundColor: '#1565C0',
         justifyContent: 'center',
-        alignItems: 'center'
+        alignItems: 'center',
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
     }
 });
 

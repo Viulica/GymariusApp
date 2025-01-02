@@ -3,10 +3,14 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from 'react
 import { Ionicons } from '@expo/vector-icons';
 import WorkoutService from '../services/WorkoutService';
 import moment from 'moment';
+import NoteService from '../services/NoteService';
+import { useTheme } from '../contexts/ThemeContext';
 
 const HistoryScreen = ({ navigation }) => {
+    const { theme, toggleTheme, currentTheme } = useTheme();
     const [workouts, setWorkouts] = useState([]);
     const [expandedWorkoutIds, setExpandedWorkoutIds] = useState([]);
+    const [linkedNotes, setLinkedNotes] = useState({});
 
     useEffect(() => {
         const unsubscribe = navigation.addListener('focus', () => {
@@ -15,6 +19,27 @@ const HistoryScreen = ({ navigation }) => {
         fetchWorkouts();
         return unsubscribe;
     }, [navigation]);
+
+    useEffect(() => {
+        const loadLinkedNotes = async () => {
+            const notesMap = {};
+            for (const workout of workouts) {
+                if (workout.linkedNotes && workout.linkedNotes.length > 0) {
+                    notesMap[workout.id] = await Promise.all(
+                        workout.linkedNotes.map(async (noteId) => {
+                            const note = await NoteService.getNoteById(noteId);
+                            return note;
+                        })
+                    );
+                }
+            }
+            setLinkedNotes(notesMap);
+        };
+
+        if (workouts.length > 0) {
+            loadLinkedNotes();
+        }
+    }, [workouts]);
 
     const fetchWorkouts = async () => {
         const allWorkouts = await WorkoutService.getWorkouts();
@@ -126,15 +151,51 @@ const HistoryScreen = ({ navigation }) => {
                         ))}
                     </View>
                 )}
+
+                {isExpanded && workout.linkedNotes && workout.linkedNotes.length > 0 && (
+                    <View style={styles.linkedNotesSection}>
+                        <Text style={styles.linkedNotesTitle}>Linked Notes:</Text>
+                        {linkedNotes[workout.id]?.map(note => note && (
+                            <TouchableOpacity 
+                                key={note.id}
+                                style={styles.linkedNoteItem}
+                                onPress={() => navigation.navigate('Notes', {
+                                    screen: 'NoteDetail',
+                                    params: { note }
+                                })}
+                            >
+                                <Text style={styles.linkedNoteText}>{note.title || 'Untitled Note'}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                )}
             </View>
         );
     };
 
     return (
-        <View style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Workout History</Text>
-                <Text style={styles.headerSubtitle}>
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
+            <View style={[styles.header, { backgroundColor: theme.surface }]}>
+                <View style={styles.headerContent}>
+                    <Text style={[
+                        styles.headerTitle, 
+                        { 
+                            color: theme.text,
+                            fontFamily: theme.titleFont 
+                        }
+                    ]}>
+                        Workout History
+                    </Text>
+                    <TouchableOpacity 
+                        onPress={toggleTheme}
+                        style={[styles.themeToggle, { backgroundColor: theme.primary }]}
+                    >
+                        <Text style={styles.themeToggleText}>
+                            {currentTheme === 'default' ? '🎀' : '🔄'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+                <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
                     {workouts.length} {workouts.length === 1 ? 'workout' : 'workouts'} recorded
                 </Text>
             </View>
@@ -157,7 +218,7 @@ const styles = StyleSheet.create({
     header: {
         backgroundColor: '#fff',
         padding: 20,
-        paddingTop: 40,
+        paddingTop: 60,
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
     },
@@ -280,6 +341,47 @@ const styles = StyleSheet.create({
     durationText: {
         fontSize: 14,
         color: '#666',
+    },
+    linkedNotesSection: {
+        marginHorizontal: 16,
+        marginTop: 12,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#eee',
+    },
+    linkedNotesTitle: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: '#333',
+        marginBottom: 8,
+    },
+    linkedNoteItem: {
+        backgroundColor: '#f0f0f0',
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 8,
+    },
+    linkedNoteText: {
+        color: '#1565C0',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    headerContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    themeToggle: {
+        padding: 10,
+        borderRadius: 20,
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    themeToggleText: {
+        fontSize: 16,
+        color: '#fff',
     },
 });
 

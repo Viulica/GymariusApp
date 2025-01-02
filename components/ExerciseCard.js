@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../contexts/ThemeContext';
 
 const ExerciseCard = ({ exercise, onAddSet, onDeleteSet, onDelete }) => {
+    const { theme } = useTheme();
     const [weight, setWeight] = useState('');
     const [reps, setReps] = useState('');
     const [lastSet, setLastSet] = useState(null);
@@ -17,6 +19,105 @@ const ExerciseCard = ({ exercise, onAddSet, onDeleteSet, onDelete }) => {
             setIsAddingSet(false);
         }
     };
+
+    const styles = useMemo(() => StyleSheet.create({
+        card: {
+            backgroundColor: theme?.surface || '#ffffff',
+            borderRadius: 10,
+            padding: 15,
+            marginVertical: 10,
+            shadowColor: theme?.text || '#000000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 3,
+        },
+        header: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 15,
+        },
+        cardTitle: {
+            fontSize: 18,
+            fontWeight: '600',
+            color: theme?.text || '#333333',
+        },
+        tableHeader: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            paddingBottom: 10,
+            borderBottomWidth: 1,
+            borderBottomColor: theme?.border || '#ccc',
+        },
+        headerText: {
+            fontWeight: 'bold',
+            flex: 1,
+            textAlign: 'center',
+            color: theme?.text || '#333333',
+        },
+        setRow: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingVertical: 10,
+            borderBottomWidth: 1,
+            borderBottomColor: theme?.border || '#ccc',
+        },
+        setText: {
+            flex: 1,
+            textAlign: 'center',
+            color: theme?.text || '#333333',
+        },
+        inputRow: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingVertical: 10,
+            borderBottomWidth: 1,
+            borderBottomColor: theme?.border || '#ccc',
+        },
+        input: {
+            flex: 1,
+            borderWidth: 1,
+            borderColor: theme?.border || '#ccc',
+            borderRadius: 5,
+            padding: 8,
+            marginHorizontal: 5,
+            textAlign: 'center',
+            color: theme?.text || '#333333',
+        },
+        addButton: {
+            padding: 5,
+        },
+        addSetButton: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 10,
+            marginTop: 10,
+            backgroundColor: theme?.background || '#ffffff',
+            borderRadius: 5,
+        },
+        addSetText: {
+            marginLeft: 8,
+            color: theme?.primary || '#1565C0',
+            fontWeight: '600',
+        },
+        inputActions: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: 70,
+        },
+        actionButton: {
+            padding: 5,
+        },
+    }), [theme]);
+
+    if (!theme) {
+        return null;
+    }
 
     return (
         <View style={styles.card}>
@@ -86,97 +187,5 @@ const ExerciseCard = ({ exercise, onAddSet, onDeleteSet, onDelete }) => {
         </View>
     );
 };
-
-const styles = StyleSheet.create({
-    card: {
-        backgroundColor: '#fff',
-        borderRadius: 10,
-        padding: 15,
-        marginVertical: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 15,
-    },
-    cardTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#333',
-    },
-    tableHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingBottom: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    headerText: {
-        fontWeight: 'bold',
-        flex: 1,
-        textAlign: 'center',
-    },
-    setRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    setText: {
-        flex: 1,
-        textAlign: 'center',
-    },
-    inputRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    input: {
-        flex: 1,
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 5,
-        padding: 8,
-        marginHorizontal: 5,
-        textAlign: 'center',
-    },
-    addButton: {
-        padding: 5,
-    },
-    addSetButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 10,
-        marginTop: 10,
-        backgroundColor: '#f0f0f0',
-        borderRadius: 5,
-    },
-    addSetText: {
-        marginLeft: 8,
-        color: '#1565C0',
-        fontWeight: '600',
-    },
-    inputActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        width: 70,
-    },
-    actionButton: {
-        padding: 5,
-    },
-});
 
 export default ExerciseCard;
