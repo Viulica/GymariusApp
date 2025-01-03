@@ -38,9 +38,9 @@ function WorkoutStackNavigator() {
             />
             <WorkoutStack.Screen 
                 name="Chat" 
-                component={ChatScreen} 
+                component={ChatScreen}
                 options={{
-                    headerTitle: props => <Text {...props}>Workout Coach Chat</Text>
+                    headerShown: false,
                 }}
             />
         </WorkoutStack.Navigator>

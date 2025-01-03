@@ -1,100 +1,150 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, Button, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import { askChatbot } from '../services/ChatbotService';
-import { useIsFocused } from '@react-navigation/native';
+import { 
+    View, 
+    Text, 
+    TextInput, 
+    FlatList, 
+    StyleSheet, 
+    TouchableOpacity,
+    KeyboardAvoidingView, 
+    Platform,
+    ActivityIndicator
+} from 'react-native';
 import { useChat } from '../contexts/ChatContext';
-import { KeyboardAvoidingView, Platform } from 'react-native';
-import { parse } from 'react-native-svg';
+import { askChatbot } from '../services/ChatbotService';
+import { useTheme } from '../contexts/ThemeContext';
+import Icon from 'react-native-vector-icons/Ionicons';
 
 const ChatScreen = ({ route }) => {
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const isFocused = useIsFocused();
     const { chatHistory, setChatHistory } = useChat();
     const {workoutExercises} = route.params;
     const flatListRef = useRef(null);
-
-    const clearChatHistory = () => {
-        setChatHistory([]);
-    };    
-
-    function parseContent(workoutExercises) {
-        const prompt = "INSTRUCTIONS: You are a fitness AI coach. You respond to users fitness-related questions. Before the questions I will provide you with some context data about what workout the user currently has active. This data I'm about to send you is data of a user's current workout so if they ask you questions about it, have that in mind. The setsDetails property's first number represents the weight, and the second number the number of reps for that set. unles the user asks you something specifically related to the exercises/workout they are doing right now, don't talk about it, just answer the questions as you normally would. Do not respond anything ever to my instructions, only respond to user questions. There are 2 possible response types: 1) The user asks a general question, if the question is not related to fitness, you should say you are a fitness AI chatbot only and cant respond to that question. 2) The user asks a question that is related to their current workout, if so, keep the workout data in mind and anwser accordingly using both your overall general fitness knowledge and the knowdlege you have about the current workout of the user. DO NOT write MARKDOWN (# and ** signs to make headings and bold text or anything similar..) by the way, only write plaintext that can be nicely rendered just by printing out. [END OF INSTRUCTIIONS (keep them in mind but dont anwser to them, anwser to the user, act like you did not read the instructions but just understand them)]. molim te da isto primijeniš i ako pitaju pitanje na hrvatskom."
-        const exercisesData = workoutExercises.map(exercise => {
-            return {
-                id: exercise.id,
-                name: exercise.name,
-                type: exercise.type,
-                bodyPart: exercise.bodyPart,
-                sets: exercise.getNumberOfSets(),
-                setsDetails: exercise.sets.map(set => [set.weight, set.reps])
-            };
-        });
-        return {
-            role: 'system',
-            content: prompt + ' ' + JSON.stringify(exercisesData)
-        };
-    }
-
+    const { theme } = useTheme();
 
     useEffect(() => {
         if (flatListRef.current) {
             flatListRef.current.scrollToEnd({ animated: true });
         }
     }, [chatHistory]);
-    
+
     const handleSend = async () => {
-        if (!input.trim()) {
-            return;
-        }
-        const parsedContent = parseContent(workoutExercises);
+        if (!input.trim()) return;
+
         const userMessage = { role: 'user', content: input.trim() };
         const updatedHistory = [...chatHistory, userMessage];
         setInput('');
         setIsLoading(true);
+
         try {
+            const parsedContent = parseContent(workoutExercises);
             const botResponse = await askChatbot([...updatedHistory, userMessage], parsedContent);
             setChatHistory([...updatedHistory, { role: 'system', content: botResponse }]);
         } catch (error) {
             console.error('Error:', error);
-            setChatHistory([...updatedHistory, { role: 'system', content: "Failed to fetch response. Please try again later." }]);
+            setChatHistory([
+                ...updatedHistory, 
+                { role: 'system', content: "Failed to fetch response. Please try again later." }
+            ]);
         } finally {
             setIsLoading(false);
         }
     };
-    const renderItem = ({ item }) => (
-        <View style={[styles.messageContainer, item.role === 'user' ? styles.userMessageContainer : styles.systemMessageContainer]}>
-            <Text style={item.role === 'user' ? styles.userMessage : styles.systemMessage}>
-                {item.role === 'user' ? `You: ${item.content}` : item.content}
+
+    function parseContent(workoutExercises) {
+        const prompt = "INSTRUCTIONS: You are a fitness AI coach..."; // Postojeći prompt
+        const exercisesData = workoutExercises.map(exercise => ({
+            id: exercise.id,
+            name: exercise.name,
+            type: exercise.type,
+            bodyPart: exercise.bodyPart,
+            sets: exercise.getNumberOfSets(),
+            setsDetails: exercise.sets.map(set => [set.weight, set.reps])
+        }));
+        return {
+            role: 'system',
+            content: prompt + ' ' + JSON.stringify(exercisesData)
+        };
+    }
+
+    const renderMessage = ({ item }) => (
+        <View style={[
+            styles.messageContainer,
+            item.role === 'user' ? 
+                [styles.userMessageContainer, { backgroundColor: theme.primary }] : 
+                [styles.systemMessageContainer, { backgroundColor: theme.surface }],
+            { marginBottom: 12 }
+        ]}>
+            <Text style={[
+                styles.messageText,
+                item.role === 'user' ? 
+                    { color: '#fff' } : 
+                    { color: theme.text }
+            ]}>
+                {item.content}
             </Text>
         </View>
     );
 
     return (
         <KeyboardAvoidingView 
-            style={styles.container}
+            style={[styles.container, { backgroundColor: theme.background }]}
             behavior={Platform.OS === "ios" ? "padding" : "height"}
-            keyboardVerticalOffset={100}
+            keyboardVerticalOffset={90}
         >
+            <View style={[styles.header, { backgroundColor: theme.surface }]}>
+                <Text style={[
+                    styles.headerTitle, 
+                    { 
+                        color: theme.text,
+                        fontFamily: theme.titleFont 
+                    }
+                ]}>
+                    AI Trainer
+                </Text>
+                <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
+                    Ask me anything about fitness!
+                </Text>
+            </View>
+
             <FlatList
                 ref={flatListRef}
                 data={chatHistory}
-                renderItem={renderItem}
-                keyExtractor={(item, index) => index.toString()}
-                onContentSizeChange={() => flatListRef.current.scrollToEnd({ animated: true })}
-                onLayout={() => flatListRef.current.scrollToEnd({ animated: true })}
-                contentContainerStyle={styles.chatContent}
+                renderItem={renderMessage}
+                keyExtractor={(_, index) => index.toString()}
+                contentContainerStyle={styles.chatContainer}
+                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
             />
-            <View style={styles.inputContainer}>
+
+            <View style={[styles.inputContainer, { backgroundColor: theme.surface }]}>
                 <TextInput
+                    style={[
+                        styles.input,
+                        { 
+                            backgroundColor: theme.background,
+                            color: theme.text,
+                            borderColor: theme.border
+                        }
+                    ]}
                     value={input}
                     onChangeText={setInput}
-                    style={styles.input}
-                    placeholder="Type a message..."
-                    returnKeyType="send"
-                    onSubmitEditing={handleSend}
+                    placeholder="Type your message..."
+                    placeholderTextColor={theme.textSecondary}
+                    multiline
                 />
+                <TouchableOpacity 
+                    onPress={handleSend}
+                    style={[styles.sendButton, { backgroundColor: theme.primary }]}
+                    disabled={isLoading || !input.trim()}
+                >
+                    {isLoading ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                        <Icon name="send" size={20} color="#fff" />
+                    )}
+                </TouchableOpacity>
             </View>
         </KeyboardAvoidingView>
     );
@@ -103,44 +153,69 @@ const ChatScreen = ({ route }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
     },
-    chatContent: {
-        paddingBottom: 100, 
+    header: {
+        padding: 20,
+        paddingTop: 45,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(0,0,0,0.1)',
     },
-    inputContainer: {
-        padding: 10,
-        paddingBottom: 20, 
-        backgroundColor: '#fff', 
+    headerTitle: {
+        fontSize: 28,
+        fontWeight: '700',
+        marginBottom: 4,
+    },
+    headerSubtitle: {
+        fontSize: 15,
+        fontWeight: '500',
+    },
+    chatContainer: {
+        padding: 16,
+        paddingBottom: 20,
     },
     messageContainer: {
-        marginVertical: 5,
-        paddingHorizontal: 10,
+        maxWidth: '85%',
+        padding: 12,
+        borderRadius: 20,
+        marginVertical: 4,
     },
     userMessageContainer: {
-        alignItems: 'flex-end',
+        alignSelf: 'flex-end',
+        borderBottomRightRadius: 4,
     },
     systemMessageContainer: {
-        alignItems: 'flex-start',
+        alignSelf: 'flex-start',
+        borderBottomLeftRadius: 4,
     },
-    userMessage: {
-        backgroundColor: '#D1E8FF',
-        padding: 10,
-        borderRadius: 10,
-        color: '#000',
+    messageText: {
+        fontSize: 16,
+        lineHeight: 22,
     },
-    systemMessage: {
-        backgroundColor: '#FFF1CC',
-        padding: 10,
-        borderRadius: 10,
-        color: '#000',
+    inputContainer: {
+        flexDirection: 'row',
+        padding: 12,
+        paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(0,0,0,0.1)',
+        alignItems: 'flex-end',
     },
     input: {
-        height: 40,
-        borderColor: 'gray',
+        flex: 1,
         borderWidth: 1,
-        padding: 10,
-        backgroundColor: '#fff', 
+        borderRadius: 20,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        paddingRight: 40,
+        fontSize: 16,
+        maxHeight: 100,
+        marginRight: 8,
+    },
+    sendButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });
 

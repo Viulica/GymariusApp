@@ -1,7 +1,7 @@
-require('dotenv').config();
+import { API_KEY } from '@env';
 
 const config = {
-    apiKey: process.env.API_KEY,
+    apiKey: API_KEY,
     apiUrl: 'https://api.openai.com/v1/chat/completions',
 };
 

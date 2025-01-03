@@ -3,6 +3,8 @@ import { API_KEY } from '@env';
 
 const API_URL = 'https://api.openai.com/v1/chat/completions';
 
+console.log('API Key:', API_KEY ? 'Loaded' : 'Not loaded');
+
 export const askChatbot = async (messages, data) => {
     const maxRetries = 3;
     let retryCount = 0;
@@ -14,7 +16,7 @@ export const askChatbot = async (messages, data) => {
             const response = await axios.post(
                 API_URL,
                 { model: "gpt-4-turbo", messages: send},
-                {headers: { Authorization: `Bearer ${API_KEY}` }} 
+                {headers: { Authorization: `Bearer ${API_KEY}` }}
             );
             return response.data.choices[0].message.content;
         } catch (error) {

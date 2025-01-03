@@ -19,7 +19,6 @@
     "@react-navigation/native-stack": "^6.11.0",
     "@react-navigation/stack": "^6.4.1",
     "axios": "^1.7.9",
-    "dotenv": "^16.4.7",
     "expo": "^52.0.23",
     "expo-app-loading": "^2.1.1",
     "expo-font": "~13.0.2",
