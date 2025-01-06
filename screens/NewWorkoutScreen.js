@@ -265,7 +265,7 @@ const NewWorkoutScreen = ({ navigation, route }) => {
     const saveCustomExercise = async () => {
         if (customExercise.name && customExercise.type && customExercise.bodyPart) {
             const newExercise = {
-                id: predefinedExercises.length + 1,
+                id: `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 name: customExercise.name,
                 type: customExercise.type,
                 bodyPart: customExercise.bodyPart,
@@ -944,7 +944,7 @@ const NewWorkoutScreen = ({ navigation, route }) => {
                                 onPress={async () => {
                                     if (customExercise.name && customExercise.type && customExercise.bodyPart) {
                                         const newExercise = {
-                                            id: Date.now().toString(),
+                                            id: `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                                             name: customExercise.name,
                                             type: customExercise.type,
                                             bodyPart: customExercise.bodyPart
